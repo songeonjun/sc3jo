@@ -603,7 +603,7 @@ function runCommand(raw){ const s=(raw||'').trim().replace(/^\//,''); const [c,.
   if(['홍수','폭우','침수','flood'].includes(k)){ runFlood(); return true; }
   if(['해제','끝','clear','stop'].includes(k)){ evClear(); return true; }
   return false; }
-window.sim={run:runCommand};
+window.sim={run:runCommand,step:stepEvents,ev:EV};
 
 document.getElementById('loading').hidden=true;
 
