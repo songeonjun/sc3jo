@@ -104,6 +104,11 @@ summary{cursor:pointer;color:var(--fg);margin-bottom:8px}
 .rv{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0}.rv a{pointer-events:auto;font:700 12.5px var(--f-body);color:#08131f;background:var(--accent);border-radius:10px;padding:7px 11px;text-decoration:none}.rv a+a{background:#4cc9ff}.rv span{font:11px var(--f-mono,monospace);color:var(--muted)}
 .rvbox{width:100%;height:min(46vh,380px);border-radius:12px;overflow:hidden;margin-top:8px;background:#0b1424}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.cmp{font-size:12.5px}.cmph,.cmpr{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.cmph span{font-weight:700;text-align:center;opacity:.55}.cmph span.cur{opacity:1;color:var(--cyan)}
+.cmpr .k{opacity:.85}.cmpr .v{position:relative;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;padding:2px 4px 6px;opacity:.55}
+.cmpr .v.cur{opacity:1;font-weight:700}.cmpr .v i{position:absolute;left:0;bottom:0;height:3px;border-radius:2px;background:#ff6b6b}
+.cmpr .v.a i{background:#4be08a}
 </style>
 <style>[hidden]{display:none!important}html,body{margin:0;padding:0;background:#0b1424}</style>
 </head>
@@ -529,6 +534,7 @@ const TOUR=[
  {mode:'after',hour:14,cam:'farm3',t:'스마트팜 단지 3',b:'수직농장 주변 밭은 토양수분 센서와 원격 관수로 관리해, 실내 재배와 노지 재배를 함께 운영합니다.',src:'개념 설계'},
  {mode:'after',hour:14,cam:'farm4',t:'스마트팜 단지 4',b:'단지마다 경로당 와이파이와 연결해, 농가가 휴대폰이나 경로당 화면으로 재배실 온도·양액·조명 상태를 확인합니다. 수확물은 영월농협 산솔지점으로 모입니다.',src:'개념 설계'},
  {mode:'after',hour:18,cam:'hub',t:'행정복지센터와 경로당·마을회관을 거점으로',b:'산솔면에는 녹전·이목·직동·화원·석항·연상 마을마다 경로당이나 마을회관이 있습니다. 면 중심에만 있는 보건지소·버스·CCTV를 이 거점을 통해 골짜기 마을까지 연결합니다.',src:'카카오맵 검색 (2026.11.)'},
+ {mode:'after',hour:12,cam:'farm1',t:'수익화: 산솔면이 스스로 버는 구조',b:'시설은 국비(지방소멸대응기금·스마트팜 지원사업)로 짓고, 운영은 주민 협동조합이 맡습니다. 수직농장 농산물(급식·농협 출하), 고향사랑기부 답례품, 지붕 태양광 이익공유, 스마트팜 체험·관광, DRT·IoT 위탁 운영으로 번 돈이 시설 유지비와 어르신 일당·배당으로 다시 마을에 돕니다.',src:'영월 단종문화제 고향사랑기부 사흘 1,224만 원 · 방문객 43,213명 (MTN 2026.4.27.)'},
  {mode:'after',hour:20,cam:'all',t:'정리',b:'영월군에서 가장 늙은 면, 산솔. 면 중심에만 모인 안전·교통·의료를 마을마다 있는 경로당과 기존 보안등을 통해 사각지대 마을까지.',src:'스마트하조 · 권나은 박소희 손건준 송가은'}
 ].filter(s=>presets[s.cam]);
 // ---------- React UI ----------
@@ -589,6 +595,8 @@ function RoadviewCard({rv,onClose}){
 function App(){ const [dev,setDev]=useState(PREVIEW); const [farmIdx,setFarmIdx]=useState(0); const [tour,setTour]=useState(-1); const [auto,setAuto]=useState(false);
   const go=i=>{ if(i<0||i>=TOUR.length) return; const sc=TOUR[i]; setTour(i); setMode(sc.mode); setHour(sc.hour); setLayers(l=>{ const o={...l}; Object.keys(o).forEach(k=>o[k]=true); return o; }); flyTo(sc.cam); };
   useEffect(()=>{ const el=document.getElementById('app'); el.classList.toggle('touring',tour>=0); },[tour]);
+  const tourRef=useRef(-1); tourRef.current=tour; const goRef=useRef(go); goRef.current=go;
+  useEffect(()=>{ const f=e=>{ if(e.key==='F7'||e.code==='F7'){ e.preventDefault(); if(tourRef.current>=0){ setTour(-1); setAuto(false); } else goRef.current(0); } }; window.addEventListener('keydown',f); return ()=>window.removeEventListener('keydown',f); },[]);
   useEffect(()=>{ if(tour<0||!auto) return; const id=setTimeout(()=>{ if(tour<TOUR.length-1) go(tour+1); else setAuto(false); },9000); return ()=>clearTimeout(id); },[tour,auto]);
   useEffect(()=>{ const h=e=>{ if(tour<0) return; const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')) return; if(e.code==='Space'||e.code==='PageDown'||e.key==='Enter'&&t.tagName!=='BUTTON'){ e.preventDefault(); go(Math.min(TOUR.length-1,tour+1)); } else if(e.code==='PageUp'||e.code==='Backspace'){ e.preventDefault(); go(Math.max(0,tour-1)); } else if(e.code==='Escape'){ setTour(-1); setAuto(false); } }; window.addEventListener('keydown',h); return ()=>window.removeEventListener('keydown',h); },[tour]); const [mode,setMode]=useState(state.mode); const [hour,setHour]=useState(state.hour); const [layers,setLayers]=useState({...state.layers}); const [pick,setPick]=useState(null); const [rv,setRv]=useState(null); const [ask,setAsk]=useState(false);
   useEffect(()=>{ setAsk(!!(pick&&pick.lat&&pick.road)); },[pick]); const [speed,setSpeed]=useState(1);
@@ -610,7 +618,6 @@ function App(){ const [dev,setDev]=useState(PREVIEW); const [farmIdx,setFarmIdx]
     
     ${PREVIEW?html`<span class="pv">미리보기 중</span>`:null}
     <span class="pv" style=${{background:'rgba(10,16,28,.85)',color:'#cfe6ff'}}>지도 클릭 → 로드뷰</span>
-    <button class="tourbtn" onClick=${()=>tour>=0?(setTour(-1),setAuto(false)):go(0)}>${tour>=0?'발표 모드 끄기':'▶ 발표 모드'}</button>
     <div class="seg" role="group" aria-label="시뮬레이션 속도">${[0,1,3].map(s=>html`<button key=${s} aria-pressed=${speed===s} onClick=${()=>setSpeed(s)}>${s===0?'정지':s+'×'}</button>`)}</div>
   </div>
   <nav class="rail" aria-label="레이어">
@@ -622,17 +629,19 @@ function App(){ const [dev,setDev]=useState(PREVIEW); const [farmIdx,setFarmIdx]
     ${rv?html`<${RoadviewCard} rv=${rv} onClose=${()=>setRv(null)} />`:html`<section class="card">
       <h2>${A?'스마트시티 적용 후':'현재 산솔면'}</h2>
       <p class="sub">${A?'유휴농지를 스마트팜으로 바꾸고, 마을회관을 거점으로 생활·안전·교통을 연결한 모습입니다.':'일손 부족으로 유휴농지가 생기고, 정해진 버스와 먼 생활시설에 의존하는 현재 모습입니다.'}</p>
-      <dl class="kv">
-        <dt>농경지 필지 (모델)</dt><dd>${farms.length.toLocaleString('ko-KR')}개</dd>
-        <dt>${A?'스마트팜 전환':'유휴농지 후보'}</dt><dd class=${A?'delta':''}>${idleCount}필지</dd>
-        <dt>${A?'가로등 (기존+신규)':'보안등 (개념 배치)'}</dt><dd class=${A?'delta':''}>${A?lampsBefore.length+' + '+(lampsAfter.length-lampsBefore.length):lampsBefore.length}개</dd>
-        <dt>CCTV ${CFG.cctv.blindM} m 밖 보안등</dt><dd class=${A?'delta':''} style=${A?null:{color:'#ff8080'}}>${A?'0곳 (AI로 보강)':blindLamps.length+'곳 ('+fmt(blindLamps.length/lampsBefore.length*100,0)+'%)'}</dd>
-        <dt>AI CCTV (보안등 기둥 부착)</dt><dd class=${A?'delta':''}>${A?cctv.length:0}대</dd>
-        <dt>대중교통 ${CFG.coverageM} m 이내 주택</dt><dd class=${A?'delta':''}>${fmt((A?covAfter:covBefore)*100,0)}%</dd>
-        <dt>DRT 호출 지점</dt><dd class=${A?'delta':''}>${A?drtRoutes.length:0}곳</dd>
-        <dt>도로망 (OSM)</dt><dd>${fmt(Object.values(roadKm).reduce((a,b)=>a+b,0))} km</dd>
-        <dt>그중 농로</dt><dd>${fmt(roadKm[6]||0)} km</dd>
-      </dl>
+      <div class="cmp" role="table" aria-label="적용 전후 비교">
+        <div class="cmph" role="row"><span></span><span class=${A?'':'cur'}>전</span><span class=${A?'cur':''}>후</span></div>
+        ${[['CCTV 사각지대 보안등',blindLamps.length+'곳',0+'곳',blindLamps.length/lampsBefore.length,0,true],
+           ['버스·DRT 닿는 주택',fmt(covBefore*100,0)+'%',fmt(covAfter*100,0)+'%',covBefore,covAfter,false],
+           ['유휴농지',idleCount+'필지 방치',idleCount+'필지 생산',1,0,true],
+           ['AI CCTV','0대',cctv.length+'대',0,1,false],
+           ['가로등',lampsBefore.length+'개',lampsAfter.length+'개',lampsBefore.length/lampsAfter.length,1,false],
+           ['DRT 호출 지점','0곳',drtRoutes.length+'곳',0,1,false]].map(([k,b,a,vb,va,bad])=>html`<div class="cmpr" role="row" key=${k}>
+          <span class="k">${k}</span>
+          <span class=${'v b'+(A?'':' cur')}>${b}<i style=${{width:Math.max(4,vb*100)+'%'}}></i></span>
+          <span class=${'v a'+(A?' cur':'')}>${a}<i style=${{width:Math.max(4,va*100)+'%'}}></i></span></div>`)}
+        <p class="hint">빨간 막대 = 적용 전, 초록 막대 = 적용 후. 위쪽의 적용 전·후 버튼을 누르면 지도도 함께 바뀝니다.</p>
+      </div>
     </section>
     <section class="card">
       <h2>데이터로 본 산솔면</h2>
