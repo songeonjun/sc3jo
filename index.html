@@ -109,6 +109,13 @@ summary{cursor:pointer;color:var(--fg);margin-bottom:8px}
 .cmpr .k{opacity:.85}.cmpr .v{position:relative;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;padding:2px 4px 6px;opacity:.55}
 .cmpr .v.cur{opacity:1;font-weight:700}.cmpr .v i{position:absolute;left:0;bottom:0;height:3px;border-radius:2px;background:#ff6b6b}
 .cmpr .v.a i{background:#4be08a}
+.cmdbar{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);width:min(620px,calc(100vw - 32px));z-index:40;background:rgba(10,16,28,.94);border:1px solid #b48cff;border-radius:14px;padding:12px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.cmdrow{display:flex;gap:8px;align-items:center}.cmdp{font-size:12px;font-weight:800;color:#d9c4ff}.cmdbar input{flex:1;font:inherit;font-size:15px;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff}
+.cmdchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.cmdchips .chip b{color:#d9c4ff}.cmdhint,.cmderr{margin:8px 0 0;font-size:12px;opacity:.7}.cmderr{color:#ff9b9b;opacity:1}
+.evlog{position:fixed;left:50%;top:64px;transform:translateX(-50%);width:min(460px,calc(100vw - 32px));max-height:42vh;overflow:auto;z-index:35;background:rgba(10,16,28,.92);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:10px 12px;font-size:13px}
+.evh{display:flex;gap:8px;align-items:center}.evh b{flex:1}.evm{font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px;background:#5a3030;color:#ffb3b3}.evm.a{background:#21483a;color:#9ff0c4}.evt{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--cyan)}
+.evlog ol{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:5px}.evlog li{display:grid;grid-template-columns:62px 1fr;gap:8px}.evlog time{font-family:var(--f-mono);font-size:11.5px;opacity:.6;padding-top:1px}
+.lbl.ev{z-index:3}.lbl.ev.warn{border-color:#ff5a5a;color:#ffc2c2;background:rgba(60,10,10,.85)}.lbl.ev.drt{border-color:#b48cff;color:#e6d9ff}
 </style>
 <style>[hidden]{display:none!important}html,body{margin:0;padding:0;background:#0b1424}</style>
 </head>
@@ -508,8 +515,96 @@ function tick(){ const rawDt=Math.min(0.05,clock.getDelta()); const dt=rawDt*sim
   pulseRings.forEach((m,k)=>{ const ph=((tt*0.35)+k/3)%1; m.scale.setScalar(10+ph*130); m.material.opacity=0.55*(1-ph); });
   sensorMesh.material.color.setHSL(0.55,0.9,0.5+0.2*Math.sin(tt*3));
   drtPins.children.forEach((m,i)=>{ m.position.y=9+Math.sin(tt*3+i)*1.5; });
-  controls.update(); renderer.render(scene,camera); updateLabels(state.mode); requestAnimationFrame(tick); }
+  stepEvents(rawDt*simSpeed); controls.update(); renderer.render(scene,camera); updateLabels(state.mode); requestAnimationFrame(tick); }
 applyState(); requestAnimationFrame(tick);
+// ---------- 이벤트 시뮬레이션: DRT 호출 · 재난 (명령어 F8 또는 /) ----------
+const EV={items:[],t:0,kind:null,follow:null}; let onSimLog=()=>{}, onSimKind=()=>{};
+const evGroup=new THREE.Group(); scene.add(evGroup);
+const SHELTER=hall?[hall[2],hall[3]]:[0,0];
+const _ft=new THREE.Vector3();
+function fmtT(t){ const s=Math.round(t*10); return Math.floor(s/60)+'분 '+String(s%60).padStart(2,'0')+'초'; } // 화면 1초 = 실제 10초
+function hAt(x,z){ return terrainH(x,z); }
+function evLog(msg){ onSimLog({t:EV.t,msg}); }
+function evAt(t,fn){ EV.items.push({at:t,fn}); }
+function evLabel(x,z,y,text,cls){ const d={x,z,y:hAt(x,z)+y,text,cls:'lbl ev '+(cls||''),max:6000,ev:true}; const el=document.createElement('div'); el.className=d.cls; el.textContent=text; labelsEl.appendChild(el); d.el=el; labelDefs.push(d); return d; }
+function evClear(){ evGroup.children.slice().forEach(o=>evGroup.remove(o)); for(let i=labelDefs.length-1;i>=0;i--) if(labelDefs[i].ev){ labelDefs[i].el.remove(); labelDefs.splice(i,1); } EV.items=[]; EV.t=0; EV.kind=null; EV.follow=null; onSimLog({reset:true}); onSimKind(null); }
+function evStart(kind){ evClear(); EV.kind=kind; onSimKind(kind); }
+function pathTo(a,b){ const p=dijkstra(nearestNode(a[0],a[1]),nearestNode(b[0],b[1])); return p&&p.length>1?p:[a,b]; }
+function vehicle(color,len,c1,c2){ const g=new THREE.BoxGeometry(len||6,2.8,3); g.translate(0,1.6,0); const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color,emissive:color,emissiveIntensity:.35})); const b=new THREE.Mesh(new THREE.SphereGeometry(1.1,8,6),new THREE.MeshBasicMaterial({color:c1||0xffffff})); b.position.y=3.9; m.add(b); m.userData={b,c1:c1||0xffffff,c2:c2||c1||0xffffff}; m.visible=false; m.scale.setScalar(1.6); evGroup.add(m); return m; }
+function drive(m,path,speed,onEnd){ const cum=cumOf(path), L=cum[cum.length-1]||1; let d=0; m.visible=true; m.position.set(path[0][0],hAt(path[0][0],path[0][1])+0.3,path[0][1]);
+  EV.items.push({every:(dt,t)=>{ d+=speed*dt; const [x,z,a]=along(path,cum,Math.min(d,L)); m.position.set(x,hAt(x,z)+0.3,z); m.rotation.y=-a; m.userData.b.material.color.setHex(Math.sin(t*14)>0?m.userData.c1:m.userData.c2); if(d>=L){ onEnd&&onEnd(); return false; } return true; }}); }
+function ring(x,z,color,maxR,period){ const m=new THREE.Mesh(new THREE.RingGeometry(0.75,1,48),new THREE.MeshBasicMaterial({color,transparent:true,side:THREE.DoubleSide,depthWrite:false})); m.rotation.x=-Math.PI/2; m.position.set(x,hAt(x,z)+1.5,z); evGroup.add(m);
+  EV.items.push({every:(dt,t)=>{ if(!m.parent) return false; const ph=(t/period)%1; m.scale.setScalar(4+ph*maxR); m.material.opacity=0.9*(1-ph); return true; }}); return m; }
+function line(path,color,w){ const m=routeLine(path,color,1.3,w||2.4); evGroup.add(m); return m; }
+function camTo(x,z,k){ k=k||1; presets._ev={p:[x-170*k,240*k,z+230*k],t:[x,0,z]}; flyTo('_ev'); }
+function nearHouses(P,maxD,n,filt){ return houses.map(h=>({h,d:Math.hypot(h.x-P[0],h.z-P[1])})).filter(o=>o.d<maxD&&(!filt||filt(o.h))).sort((a,b)=>a.d-b.d).slice(0,n).map(o=>[o.h.x,o.h.z]); }
+function stepEvents(dt){ if(!EV.kind) return; EV.t+=dt; const t=EV.t; const cur=EV.items; EV.items=[];
+  const keep=cur.filter(it=>{ if(it.every) return it.every(dt,t)!==false; if(t>=it.at){ it.fn(); return false; } return true; }); EV.items=keep.concat(EV.items);
+  if(EV.follow&&EV.follow.visible&&!flight){ const p=EV.follow.position; _ft.set(p.x,0,p.z).sub(controls.target).multiplyScalar(0.05); controls.target.add(_ft); camera.position.add(_ft); } }
+const afterMode=()=>state.mode==='after';
+
+function runDRT(name){ evStart('drt'); const A=afterMode();
+  const h=seniorHubs.find(s=>name&&s.name.includes(name))||seniorHubs[Math.floor(Math.random()*seniorHubs.length)];
+  camTo(h.x,h.z,1.1);
+  if(!A){ evLabel(h.x,h.z,16,'🕑 다음 버스까지 2시간+','warn'); evLog(h.name+' 경로당: 영월읍 병원에 가야 하는데 다음 버스까지 2시간 넘게 남았습니다.'); evAt(2.5,()=>evLog('적용 전에는 부를 수 있는 교통수단이 없습니다. 상단에서 「스마트시티 적용 (AFTER)」로 바꾸고 다시 실행해 보세요.')); return; }
+  ring(h.x,h.z,0xb48cff,40,1.1); const lb=evLabel(h.x,h.z,18,'📞 DRT 호출','drt');
+  evLog(h.name+' 경로당 호출벨 누름 → 영월군 DRT 콜센터 접수');
+  const van=vehicle(0xb48cff,7,0xffffff,0xb48cff); const go=pathTo(STATION,[h.x,h.z]), back=pathTo([h.x,h.z],SHELTER);
+  evAt(0.8,()=>{ evLog('가장 가까운 DRT 차량 배차 · 경로 자동 안내'); line(go,0xb48cff,2.4); EV.follow=van;
+    drive(van,go,55,()=>{ lb.el.textContent='🚐 탑승 중'; evLog('경로당 앞 도착 · 어르신 탑승 (호출 후 '+fmtT(EV.t)+')');
+      evAt(EV.t+1.5,()=>{ lb.el.textContent='✔ 출발'; line(back,0x4be08a,2.4); evLog('면 중심(보건지소·행정복지센터)으로 출발');
+        drive(van,back,55,()=>{ evLabel(SHELTER[0],SHELTER[1],16,'🏥 도착','drt'); evLog('도착 · 총 '+fmtT(EV.t)+' 소요. 버스를 기다렸다면 2시간 이상.'); EV.follow=null; }); }); }); }); }
+
+function runFall(){ evStart('fall'); const A=afterMode();
+  const c=cctv.length?cctv[Math.floor(Math.random()*cctv.length)]:[300,-300]; const P=nearHouses(c,400,1)[0]||c;
+  camTo(P[0],P[1],1.0); ring(P[0],P[1],0xff4040,22,1); const lb=evLabel(P[0],P[1],12,'⚠ 어르신 쓰러짐','warn');
+  evLog('밤 11시, 혼자 사는 어르신이 집 앞에서 쓰러졌습니다.');
+  const amb=vehicle(0xf4f4f4,8,0xff2020,0x2060ff); const edge=busRoutes[0][0]; const go119=pathTo(edge,P);
+  const call119=()=>{ line(go119,0xff5a5a,2.4); drive(amb,go119,80,()=>{ lb.el.textContent='🚑 병원 이송'; evLog('119 구급차 도착 · 병원 이송 (사고 후 '+fmtT(EV.t)+')'); EV.follow=null; }); };
+  if(A){ evAt(0.4,()=>{ ring(c[0],c[1],0xb48cff,30,0.8); evLabel(c[0],c[1],14,'AI CCTV 감지','drt'); evLog('보안등 기둥의 AI CCTV가 쓰러짐을 감지'); });
+    evAt(0.8,()=>{ evLog('산솔면보건지소·가족·119에 위치와 영상 자동 전송'); const nurse=vehicle(0x4be08a,6,0x4be08a,0xffffff); const pn=pathTo(STATION,P); line(pn,0x4be08a,2.4); EV.follow=nurse;
+      drive(nurse,pn,60,()=>{ lb.el.textContent='🩺 응급처치 중'; evLog('보건지소 인력 먼저 도착 · 응급처치 시작 (사고 후 '+fmtT(EV.t)+')'); EV.follow=amb; }); call119(); }); }
+  else { evLog('주변에 CCTV가 없어 아무도 알지 못합니다…'); evAt(12,()=>{ evLog('한참 뒤 지나가던 이웃이 발견하고 119 신고 (사고 후 '+fmtT(EV.t)+'). 화면에선 2분으로 줄였지만 실제로는 더 늦어질 수 있습니다.'); EV.follow=amb; call119(); }); } }
+
+function runFire(){ evStart('fire'); const A=afterMode();
+  const h=seniorHubs.find(s=>s.name==='녹전3리')||seniorHubs[0]; const F=[h.x+130,h.z-110]; camTo(F[0],F[1],1.7);
+  const fg=new THREE.ConeGeometry(2.4,8,6); fg.translate(0,4,0); const flames=[]; for(let i=0;i<120;i++){ const a=Math.random()*Math.PI*2, r=Math.sqrt(Math.random())*150; const x=F[0]+Math.cos(a)*r, z=F[1]+Math.sin(a)*r; const m=new THREE.Mesh(fg,new THREE.MeshBasicMaterial({color:Math.random()<.5?0xff4a14:0xffb020,transparent:true,opacity:.92})); m.position.set(x,hAt(x,z),z); m.visible=false; m.userData.r=r; evGroup.add(m); flames.push(m); }
+  const sg=new THREE.SphereGeometry(7,8,6); const smoke=[]; for(let i=0;i<30;i++){ const m=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0x6b6b6b,transparent:true,opacity:0,depthWrite:false})); m.userData.ph=Math.random(); m.userData.o=[(Math.random()-.5)*60,(Math.random()-.5)*60]; evGroup.add(m); smoke.push(m); }
+  let stop=A?70:150; const fy=hAt(F[0],F[1]);
+  EV.items.push({every:(dt,t)=>{ const R=Math.min(stop,4+t*5); flames.forEach((m,i)=>{ m.visible=m.userData.r<R; m.scale.set(1,0.6+0.6*Math.abs(Math.sin(t*9+i)),1); }); smoke.forEach(m=>{ const ph=(m.userData.ph+t*0.12)%1; m.position.set(F[0]+m.userData.o[0]*(1+ph),fy+10+ph*140,F[1]+m.userData.o[1]*(1+ph)); m.scale.setScalar(1+ph*2.5); m.material.opacity=0.4*(1-ph)*Math.min(1,R/30); }); return true; }});
+  evLabel(F[0],F[1],30,'🔥 산불 발생','warn'); evLog('녹전3리 뒷산에서 산불 발생');
+  const hs=nearHouses(F,480,8); const evac=()=>{ hs.forEach(p=>{ ring(p[0],p[1],A?0xffbe45:0xff4040,14,1.3); line(pathTo(p,SHELTER),0x4be08a,1.8); }); evLabel(SHELTER[0],SHELTER[1],18,'🏫 대피소 (행정복지센터)','drt'); };
+  if(A){ evAt(1,()=>{ ring(F[0],F[1],0xb48cff,60,1); evLog('산불감시 AI 카메라가 연기 감지 → 영월군·산림청 자동 신고'); });
+    evAt(1.6,()=>{ evLog('녹전3리 '+hs.length+'가구에 대피 문자·마을방송, 경로당 화면에 대피 경로 표시'); evac(); const van=vehicle(0xb48cff,7,0xffffff,0xb48cff); const go=pathTo(STATION,[h.x,h.z]); line(go,0xb48cff,2.4); EV.follow=van; drive(van,go,60,()=>{ evLog('DRT가 거동 불편 어르신 태우고 대피소로 (사고 후 '+fmtT(EV.t)+')'); drive(van,pathTo([h.x,h.z],SHELTER),60,()=>{ evLog('대피 완료'); EV.follow=null; }); }); });
+    evAt(9,()=>evLog('초기 진화로 확산 억제 (번진 범위: 적용 전의 절반 이하)')); }
+  else { evAt(8,()=>{ evLog('연기가 크게 오른 뒤에야 주민이 보고 신고 (사고 후 '+fmtT(EV.t)+')'); });
+    evAt(10,()=>{ evLog('이장님이 집집마다 전화 · 각자 대피. 차 없는 어르신은 대피 지연'); evac(); evLabel(h.x,h.z,20,'⚠ 이동 수단 없음','warn'); }); evAt(22,()=>evLog('불이 크게 번졌습니다. AFTER에서 다시 실행해 비교해 보세요.')); } }
+
+function runFlood(){ evStart('flood'); const A=afterMode(); camTo(STATION[0],STATION[1],1.8);
+  const water=[22,48,80].map((w,i)=>{ const m=new THREE.Mesh(mergeRibbons(stream.map(s=>({pts:s.pts,w})),1.1+i*0.25),new THREE.MeshBasicMaterial({color:0x3a8fd8,transparent:true,opacity:0,depthWrite:false})); evGroup.add(m); return m; });
+  const N=3000, rp=new Float32Array(N*3); for(let i=0;i<N;i++){ rp[i*3]=(Math.random()-.5)*1400; rp[i*3+1]=Math.random()*300; rp[i*3+2]=(Math.random()-.5)*1400; }
+  const rg=new THREE.BufferGeometry(); rg.setAttribute('position',new THREE.BufferAttribute(rp,3)); const rain=new THREE.Points(rg,new THREE.PointsMaterial({color:0xaad4ff,size:1.6,transparent:true,opacity:.6})); evGroup.add(rain);
+  EV.items.push({every:(dt,t)=>{ const L=Math.min(3,t/3.5); water.forEach((m,i)=>m.material.opacity=Math.max(0,Math.min(1,L-i))*0.5); rain.position.set(controls.target.x,0,controls.target.z); for(let i=0;i<N;i++){ rp[i*3+1]-=260*dt; if(rp[i*3+1]<0) rp[i*3+1]+=300; } rg.attributes.position.needsUpdate=true; return true; }});
+  const segD=(x,z)=>{ let b=1e9; stream.forEach(s=>{ for(let i=1;i<s.pts.length;i++){ const [ax,az]=s.pts[i-1],[bx,bz]=s.pts[i]; const dx=bx-ax,dz=bz-az,L=dx*dx+dz*dz; const u=L?Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/L)):0; b=Math.min(b,Math.hypot(x-ax-u*dx,z-az-u*dz)); } }); return b; };
+  const hs=nearHouses(STATION,700,12,h=>segD(h.x,h.z)<42);
+  evLog('집중호우 · 하천 수위 상승 중');
+  const evac=()=>{ hs.forEach(p=>{ ring(p[0],p[1],A?0xffbe45:0xff4040,14,1.3); line(pathTo(p,SHELTER),0x4be08a,1.8); }); evLabel(SHELTER[0],SHELTER[1],18,'🏫 대피소','drt'); };
+  if(A){ evAt(1,()=>{ evLog('하천 수위 센서 경보 (위험 수위 도달 전)'); });
+    evAt(1.6,()=>{ evLog('하천 옆 저지대 '+hs.length+'가구에 대피 문자·마을방송, 경로당에서 대피 확인'); evac(); if(hs[0]){ const van=vehicle(0xb48cff,7,0xffffff,0xb48cff); const go=pathTo(STATION,hs[0]); EV.follow=van; drive(van,go,55,()=>{ evLog('DRT가 거동 불편 어르신 태우고 대피소로'); drive(van,pathTo(hs[0],SHELTER),55,()=>{ evLog('침수 전 대피 완료 (사고 후 '+fmtT(EV.t)+')'); EV.follow=null; }); }); } });
+    evAt(7,()=>evLog('하천이 넘침 · 주민은 이미 대피소에 있습니다')); }
+  else { evAt(7,()=>{ evLog('경보 없이 하천이 넘쳐 저지대 주택 침수 시작 (사고 후 '+fmtT(EV.t)+')'); hs.forEach(p=>evLabel(p[0],p[1],8,'💧','warn')); });
+    evAt(9,()=>{ evLog('물이 차오른 뒤에야 각자 대피 시작 · 거동 불편 어르신 고립 위험'); evac(); }); } }
+
+const SIM_CMDS=[['drt','DRT 호출 (예: drt 이목리)'],['낙상','어르신 낙상'],['산불','산불'],['홍수','집중호우·하천 범람'],['해제','시뮬레이션 끝내기']];
+function runCommand(raw){ const s=(raw||'').trim().replace(/^\//,''); const [c,...rest]=s.split(/\s+/); const k=(c||'').toLowerCase(); const arg=rest.join(' ');
+  if(['drt','디알티','호출'].includes(k)){ runDRT(arg); return true; }
+  if(['낙상','fall','쓰러짐'].includes(k)){ runFall(); return true; }
+  if(['산불','화재','fire'].includes(k)){ runFire(); return true; }
+  if(['홍수','폭우','침수','flood'].includes(k)){ runFlood(); return true; }
+  if(['해제','끝','clear','stop'].includes(k)){ evClear(); return true; }
+  return false; }
+window.sim={run:runCommand};
+
 document.getElementById('loading').hidden=true;
 
 // ---------- dev mode helpers ----------
@@ -595,6 +690,10 @@ function RoadviewCard({rv,onClose}){
 function App(){ const [dev,setDev]=useState(PREVIEW); const [farmIdx,setFarmIdx]=useState(0); const [tour,setTour]=useState(-1); const [auto,setAuto]=useState(false);
   const go=i=>{ if(i<0||i>=TOUR.length) return; const sc=TOUR[i]; setTour(i); setMode(sc.mode); setHour(sc.hour); setLayers(l=>{ const o={...l}; Object.keys(o).forEach(k=>o[k]=true); return o; }); flyTo(sc.cam); };
   useEffect(()=>{ const el=document.getElementById('app'); el.classList.toggle('touring',tour>=0); },[tour]);
+  const [cmd,setCmd]=useState(false); const [cmdTxt,setCmdTxt]=useState(''); const [cmdErr,setCmdErr]=useState(''); const [evk,setEvk]=useState(null); const [evlog,setEvlog]=useState([]); const [evt,setEvt]=useState(0);
+  useEffect(()=>{ onSimLog=e=>setEvlog(l=>e.reset?[]:[...l,e]); onSimKind=setEvk; const f=e=>{ const t=e.target; const typing=t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'); if(e.key==='F8'||(!typing&&e.key==='/')){ e.preventDefault(); setCmd(c=>!c); setCmdErr(''); } }; window.addEventListener('keydown',f); return ()=>window.removeEventListener('keydown',f); },[]);
+  useEffect(()=>{ if(!evk) return; const id=setInterval(()=>setEvt(EV.t),200); return ()=>clearInterval(id); },[evk]);
+  const exec=txt=>{ if(runCommand(txt)){ setCmd(false); setCmdTxt(''); setCmdErr(''); } else setCmdErr('모르는 명령어예요: '+txt); };
   const tourRef=useRef(-1); tourRef.current=tour; const goRef=useRef(go); goRef.current=go;
   useEffect(()=>{ const f=e=>{ if(e.key==='F7'||e.code==='F7'){ e.preventDefault(); if(tourRef.current>=0){ setTour(-1); setAuto(false); } else goRef.current(0); } }; window.addEventListener('keydown',f); return ()=>window.removeEventListener('keydown',f); },[]);
   useEffect(()=>{ if(tour<0||!auto) return; const id=setTimeout(()=>{ if(tour<TOUR.length-1) go(tour+1); else setAuto(false); },9000); return ()=>clearTimeout(id); },[tour,auto]);
@@ -668,6 +767,13 @@ function App(){ const [dev,setDev]=useState(PREVIEW); const [farmIdx,setFarmIdx]
       </div>
     </section>
   </aside>
+  ${cmd?html`<form class="cmdbar" onSubmit=${e=>{ e.preventDefault(); exec(cmdTxt); }}>
+    <div class="cmdrow"><span class="cmdp">명령어</span><input autoFocus value=${cmdTxt} placeholder="drt 이목리 · 낙상 · 산불 · 홍수 · 해제" onInput=${e=>setCmdTxt(e.target.value)} onKeyDown=${e=>{ if(e.key==='Escape'){ e.preventDefault(); setCmd(false); } }} aria-label="시뮬레이션 명령어" /></div>
+    <div class="cmdchips">${SIM_CMDS.map(([k,d])=>html`<button type="button" key=${k} class="chip" onClick=${()=>exec(k)}><b>${k}</b> ${d}</button>`)}</div>
+    ${cmdErr?html`<p class="cmderr">${cmdErr}</p>`:html`<p class="cmdhint">F8 또는 / 로 열고 닫기 · 상단 BEFORE/AFTER를 바꿔 같은 상황을 비교해 보세요</p>`}
+  </form>`:null}
+  ${evk?html`<section class="evlog" aria-live="polite"><div class="evh"><b>${({drt:'🚐 DRT 호출',fall:'⚠ 어르신 낙상',fire:'🔥 산불',flood:'🌧 집중호우·범람'})[evk]}</b><span class=${'evm'+(A?' a':'')}>${A?'AFTER':'BEFORE'}</span><span class="evt">${fmtT(evt)}</span><button class="chip" onClick=${()=>runCommand('해제')}>끝내기</button></div>
+    <ol>${evlog.map((l,i)=>html`<li key=${i}><time>${fmtT(l.t)}</time><span>${l.msg}</span></li>`)}</ol><p class="hint">화면 1초 = 실제 약 10초 (개념 시뮬레이션)</p></section>`:null}
   ${tour>=0?html`<section class="tour" role="region" aria-label="발표 모드" aria-live="polite">
     <div class="step">${String(tour+1).padStart(2,'0')} / ${String(TOUR.length).padStart(2,'0')} · ${TOUR[tour].mode==='after'?'AFTER':'BEFORE'}</div>
     <h2>${TOUR[tour].t}</h2><p>${TOUR[tour].b}</p><div class="src">${TOUR[tour].src}</div>
