@@ -600,7 +600,7 @@ function runFall(){ evStart('fall'); const A=afterMode();
   const c=cctv.length?cctv[Math.floor(Math.random()*cctv.length)]:[300,-300]; const P=nearHouses(c,400,1)[0]||c;
   camTo(P[0],P[1],1.0); ring(P[0],P[1],0xff4040,22,1); const lb=evLabel(P[0],P[1],12,'⚠ 어르신 쓰러짐','warn');
   evLog('밤 11시, 혼자 사는 어르신이 집 앞에서 쓰러졌습니다.');
-  const amb=vehicle(0xf4f4f4,8,0xff2020,0x2060ff); const edge=busRoutes[0][busRoutes[0].length-1]; // 영월읍(서강로) 방향 const go119=pathTo(edge,P);
+  const amb=vehicle(0xf4f4f4,8,0xff2020,0x2060ff); const edge=busRoutes[0][busRoutes[0].length-1]; const go119=pathTo(edge,P);
   const call119=()=>{ line(go119,0xff5a5a,2.4); drive(amb,go119,80,()=>{ lb.el.textContent='🚑 병원 이송'; evLog('119 구급차 도착 · 병원 이송 (사고 후 '+fmtT(EV.t)+')'); EV.follow=null; }); };
   if(A){ evAt(0.4,()=>{ ring(c[0],c[1],0xb48cff,30,0.8); evLabel(c[0],c[1],14,'AI CCTV 감지','drt'); evLog('보안등 기둥의 AI CCTV가 쓰러짐을 감지'); });
     evAt(0.8,()=>{ evLog('주천통합보건지소·가족·119에 위치와 영상 자동 전송'); const nurse=vehicle(0x4be08a,6,0x4be08a,0xffffff); const pn=pathTo(STATION,P); line(pn,0x4be08a,2.4); EV.follow=nurse;
