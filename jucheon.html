@@ -600,11 +600,11 @@ function runFall(){ evStart('fall'); const A=afterMode();
   const c=cctv.length?cctv[Math.floor(Math.random()*cctv.length)]:[300,-300]; const P=nearHouses(c,400,1)[0]||c;
   camTo(P[0],P[1],1.0); ring(P[0],P[1],0xff4040,22,1); const lb=evLabel(P[0],P[1],12,'⚠ 어르신 쓰러짐','warn');
   evLog('밤 11시, 혼자 사는 어르신이 집 앞에서 쓰러졌습니다.');
-  const amb=vehicle(0xf4f4f4,8,0xff2020,0x2060ff); const edge=busRoutes[0][0]; const go119=pathTo(edge,P);
+  const amb=vehicle(0xf4f4f4,8,0xff2020,0x2060ff); const edge=busRoutes[0][busRoutes[0].length-1]; // 영월읍(서강로) 방향 const go119=pathTo(edge,P);
   const call119=()=>{ line(go119,0xff5a5a,2.4); drive(amb,go119,80,()=>{ lb.el.textContent='🚑 병원 이송'; evLog('119 구급차 도착 · 병원 이송 (사고 후 '+fmtT(EV.t)+')'); EV.follow=null; }); };
   if(A){ evAt(0.4,()=>{ ring(c[0],c[1],0xb48cff,30,0.8); evLabel(c[0],c[1],14,'AI CCTV 감지','drt'); evLog('보안등 기둥의 AI CCTV가 쓰러짐을 감지'); });
     evAt(0.8,()=>{ evLog('주천통합보건지소·가족·119에 위치와 영상 자동 전송'); const nurse=vehicle(0x4be08a,6,0x4be08a,0xffffff); const pn=pathTo(STATION,P); line(pn,0x4be08a,2.4); EV.follow=nurse;
-      drive(nurse,pn,60,()=>{ lb.el.textContent='🩺 응급처치 중'; evLog('보건지소 인력 먼저 도착 · 응급처치 시작 (사고 후 '+fmtT(EV.t)+')'); EV.follow=amb; }); call119(); }); }
+      drive(nurse,pn,75,()=>{ lb.el.textContent='🩺 응급처치 중'; evLog('보건지소 인력 먼저 도착 · 응급처치 시작 (사고 후 '+fmtT(EV.t)+')'); EV.follow=amb; }); call119(); }); }
   else { evLog('주변에 CCTV가 없어 아무도 알지 못합니다…'); evAt(12,()=>{ evLog('한참 뒤 지나가던 이웃이 발견하고 119 신고 (사고 후 '+fmtT(EV.t)+'). 화면에선 2분으로 줄였지만 실제로는 더 늦어질 수 있습니다.'); EV.follow=amb; call119(); }); } }
 
 function runFire(){ evStart('fire'); const A=afterMode();
@@ -643,7 +643,10 @@ function runAna(kind){ evStart(kind); const A=afterMode(); onSimLayer(kind==='si
   if(kind==='site'){ flyTo('site'); evLog('점수 = 경사(완만할수록 +2) + 도로 '+CFG.smart.roadDistM+' m 안(+1) + 유휴농지(+1) + 마을과 거리(+1), 침수·석회암 구역은 제외'); SITES.forEach(c=>evLog('후보 '+(c.i+1)+': '+c.n+'필지 · 평균 경사 '+c.slope.toFixed(1)+'% · 평균 점수 '+c.avg.toFixed(1))); if(!A) evLog('후보 핀은 AFTER에서 보입니다.'); } }
 function avoidPath(a,b,P,r){ const src=nearestNode(a[0],a[1]), dst=nearestNode(b[0],b[1]); const D=new Map([[src.k,0]]), Pv=new Map(), done=new Set(); const pq=[[0,src]]; while(pq.length){ pq.sort((x,y)=>x[0]-y[0]); const [d,u]=pq.shift(); if(done.has(u.k)) continue; done.add(u.k); if(u===dst) break; for(const e of u.e){ if(Math.hypot(e.n.p[0]-P[0],e.n.p[1]-P[1])<r) continue; const nd=d+e.w; if(nd<(D.get(e.n.k)??1e18)){ D.set(e.n.k,nd); Pv.set(e.n.k,u); pq.push([nd,e.n]); } } } if(!Pv.has(dst.k)) return null; const out=[dst.p]; let k=dst; while(Pv.has(k.k)){ k=Pv.get(k.k); out.push(k.p); } return out.reverse(); }
 function runSink(){ evStart('sink'); const A=afterMode(); onSimLayer(['hazard']);
-  const n=nearestNode(LIME.x,LIME.z,nd=>nd.e.some(e=>e.c<=5)); const P=n.p; camTo(P[0],P[1],1.2);
+  const cands=nodeList.filter(nd=>nd.e.length>=2&&nd.e.some(e=>e.c<=5)&&Math.hypot(nd.p[0]-LIME.x,nd.p[1]-LIME.z)<LIME.r+60).sort((x,y)=>Math.hypot(x.p[0]-LIME.x,x.p[1]-LIME.z)-Math.hypot(y.p[0]-LIME.x,y.p[1]-LIME.z));
+  const farF=(P,q)=>{ let best=q, bd=0; nodeList.forEach(m=>{ const d1=Math.hypot(m.p[0]-P[0],m.p[1]-P[1]); if(d1<200&&d1>bd&&((m.p[0]-P[0])*(q[0]-P[0])+(m.p[1]-P[1])*(q[1]-P[1]))>0&&m.e.some(e=>e.c<=5)){ bd=d1; best=m.p; } }); return best; };
+  let n=cands[0]||nearestNode(LIME.x,LIME.z); for(const c of cands.slice(0,40)){ const e0=c.e[0].n.p, e1=c.e[1].n.p; if(avoidPath(farF(c.p,e0),farF(c.p,e1),c.p,45)){ n=c; break; } }
+  const P=n.p; camTo(P[0],P[1],1.2);
   const hole=new THREE.Mesh(new THREE.CircleGeometry(1,32).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0x1a1410})); hole.position.set(P[0],1.6,P[1]); evGroup.add(hole);
   const lb=evLabel(P[0],P[1],12,A?'⚠ 미세 침하 감지':'도로 균열','warn'); let grow=A?0.6:1; let R=1;
   EV.items.push({every:(dt,t)=>{ R=Math.min(A?5:16,R+dt*grow*1.3); hole.scale.setScalar(R); return true; }});
