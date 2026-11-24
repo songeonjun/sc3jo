@@ -25,7 +25,7 @@ progress(.08,'항공사진 연결 중…');
 async function addImagery(){
  if(window.CFG&&CFG.vworldKey){try{viewer.imageryLayers.addImageryProvider(new C.UrlTemplateImageryProvider({url:`https://api.vworld.kr/req/wmts/1.0.0/${CFG.vworldKey}/Satellite/{z}/{y}/{x}.jpeg`,maximumLevel:19,credit:'브이월드 항공사진 (국토교통부)'}));SRC.imagery='브이월드 항공사진';return}catch(e){}}
  if(C.Ion.defaultAccessToken){try{const p=await C.IonImageryProvider.fromAssetId(2);viewer.imageryLayers.addImageryProvider(p);SRC.imagery='Bing 항공사진';return}catch(e){console.warn('ion imagery',e)}}
- viewer.imageryLayers.addImageryProvider(new C.UrlTemplateImageryProvider({url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',maximumLevel:19,credit:'Esri, Maxar'}));SRC.imagery='Esri 위성';}
+ viewer.imageryLayers.addImageryProvider(new C.UrlTemplateImageryProvider({url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',maximumLevel:17,credit:'Esri, Maxar'}));SRC.imagery='Esri 위성';}
 await addImagery();
 const base=viewer.imageryLayers.get(0);if(base){base.brightness=1.05;base.contrast=1.08;base.saturation=1.05;base.gamma=1.0}
 // --- terrain ---
