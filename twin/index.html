@@ -72,7 +72,7 @@ h1{font-size:23px;line-height:1.22;margin:0 0 6px;font-weight:900;text-wrap:bala
 <div id="bar" class="glass">
   <button id="play">재생</button><span id="clock">06:30</span>
   <input id="tr" type="range" min="0" max="1" step="60" value="0" aria-label="시뮬레이션 시각">
-  <div id="rot" role="group" aria-label="화면 회전"><button id="rl" title="왼쪽으로 회전 (Q)">⟲</button><button id="ra" title="자동 회전 (R)" aria-pressed="false">자동 회전</button><button id="rr" title="오른쪽으로 회전 (E)">⟳</button><button id="rn" title="북쪽 위로 (N)">N</button></div>
+  <div id="rot" role="group" aria-label="화면 회전"><button id="rl" title="왼쪽으로 회전 (Q)">⟲</button><button id="ra" title="자동 회전 (R)" aria-pressed="false">자동 회전</button><button id="rr" title="오른쪽으로 회전 (E)">⟳</button><button id="rn" title="북쪽 위로 (N)">N</button><button id="hq" title="고화질 지형 토큰 입력">고화질</button></div>
   <select id="spd" aria-label="재생 속도"><option value="0.5">느리게</option><option value="1" selected>보통</option><option value="2.5">빠르게</option></select>
 </div>
 <div id="legend" class="glass"></div>
@@ -83,6 +83,6 @@ h1{font-size:23px;line-height:1.22;margin:0 0 6px;font-weight:900;text-wrap:bala
 <script src="https://cdn.jsdelivr.net/npm/cesium@1.123.0/Build/Cesium/Cesium.js"></script>
 <script src="app.js"></script>
 <div id="keybox" class="glass" hidden><b>고화질 지형·항공사진</b><p>Cesium ion 토큰을 넣으면 Cesium World Terrain과 Bing 항공사진으로 바뀐다. 이 브라우저에만 저장된다.</p><input id="kIon" placeholder="Cesium ion 토큰" autocomplete="off"><input id="kVw" placeholder="브이월드 API 키 (선택)" autocomplete="off"><div><button id="kSave">저장하고 다시 열기</button><button id="kClr">지우기</button><button id="kX">닫기</button></div></div>
-<script>{const b=document.getElementById('keybox'),s=document.getElementById('src');s.style.cursor='pointer';s.title='눌러서 고화질 지형 토큰 입력';s.addEventListener('click',()=>{b.hidden=!b.hidden;try{kIon.value=localStorage.getItem('jc_ionToken')||'';kVw.value=localStorage.getItem('jc_vworldKey')||''}catch(e){}});kX.onclick=()=>b.hidden=true;kSave.onclick=()=>{try{localStorage.setItem('jc_ionToken',kIon.value.trim());localStorage.setItem('jc_vworldKey',kVw.value.trim())}catch(e){}location.reload()};kClr.onclick=()=>{try{localStorage.removeItem('jc_ionToken');localStorage.removeItem('jc_vworldKey')}catch(e){}location.reload()}}</script>
+<script>{const b=document.getElementById('keybox'),s=document.getElementById('src');s.style.cursor='pointer';s.title='눌러서 고화질 지형 토큰 입력';const open=()=>{b.hidden=!b.hidden;try{kIon.value=localStorage.getItem('jc_ionToken')||'';kVw.value=localStorage.getItem('jc_vworldKey')||''}catch(e){}};s.addEventListener('click',open);document.getElementById('hq').addEventListener('click',open);kX.onclick=()=>b.hidden=true;kSave.onclick=()=>{try{localStorage.setItem('jc_ionToken',kIon.value.trim());localStorage.setItem('jc_vworldKey',kVw.value.trim())}catch(e){}location.reload()};kClr.onclick=()=>{try{localStorage.removeItem('jc_ionToken');localStorage.removeItem('jc_vworldKey')}catch(e){}location.reload()}}</script>
 </body>
 </html>
