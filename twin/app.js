@@ -246,6 +246,28 @@ hnd.setInputAction(m=>{const p=scene.pick(m.endPosition);let h='';if(p&&p.id){if
  if(h){tip.innerHTML=h;tip.style.display='block';tip.style.left=Math.min(innerWidth-300,m.endPosition.x+16)+'px';tip.style.top=(m.endPosition.y-10)+'px'}else tip.style.display='none'},C.ScreenSpaceEventType.MOUSE_MOVE);
 
 
+
+/* ================= graphics quality (supersampling + CAS sharpen) ================= */
+const casStage=scene.postProcessStages.add(new C.PostProcessStage({name:'cas',uniforms:{sharp:.35},fragmentShader:`
+uniform sampler2D colorTexture;uniform float sharp;in vec2 v_textureCoordinates;
+void main(){vec2 p=1.0/czm_viewport.zw;vec2 uv=v_textureCoordinates;vec4 C0=texture(colorTexture,uv);vec3 c=C0.rgb;
+vec3 a=texture(colorTexture,uv+vec2(0.,-p.y)).rgb,b=texture(colorTexture,uv+vec2(-p.x,0.)).rgb,d=texture(colorTexture,uv+vec2(p.x,0.)).rgb,e=texture(colorTexture,uv+vec2(0.,p.y)).rgb;
+vec3 mn=min(min(min(a,b),min(d,e)),c),mx=max(max(max(a,b),max(d,e)),c);vec3 amp=sqrt(clamp(min(mn,1.0-mx)/max(mx,vec3(1e-4)),0.,1.));
+vec3 w=-amp/mix(8.0,5.0,sharp);vec3 o=(c+w*(a+b+d+e))/(1.0+4.0*w);out_FragColor=vec4(clamp(o,0.,1.),C0.a);}`}));
+const QUAL={
+ max:{label:'최고',ss:2.0,sse:1.0,msaa:8,sharp:.35,anis:16},
+ bal:{label:'균형',ss:1.0,sse:1.5,msaa:4,sharp:.25,anis:8},
+ perf:{label:'성능',ss:.67,sse:2.5,msaa:1,sharp:.6,anis:4}};
+viewer.useBrowserRecommendedResolution=false;globe.preloadSiblings=true;globe.loadingDescendantLimit=40;
+function setQuality(k){const q=QUAL[k]||QUAL.max;const dpr=window.devicePixelRatio||1;
+ // 목표 렌더 배율(q.ss) = 화면 픽셀 대비. 4K×1.3 이상의 내부 해상도는 넘지 않게 제한
+ let s=q.ss/dpr*dpr;const px=innerWidth*innerHeight*dpr*dpr;const cap=Math.sqrt(3840*2160*1.3/px);s=Math.min(s,Math.max(1,cap));if(q.ss<1)s=q.ss;
+ viewer.resolutionScale=s;globe.maximumScreenSpaceError=q.sse;try{scene.msaaSamples=q.msaa}catch(e){}
+ casStage.uniforms.sharp=q.sharp;casStage.enabled=true;
+ try{localStorage.setItem('jc_quality',k)}catch(e){}const sel=$('#q');if(sel)sel.value=k}
+let QK='max';try{QK=localStorage.getItem('jc_quality')||'max'}catch(e){}
+setQuality(QK);$('#q').onchange=e=>setQuality(e.target.value);addEventListener('resize',()=>setQuality($('#q').value));
+
 /* ================= rotation ================= */
 const ROT={auto:false,anim:null};
 function pivot(){const c=scene.canvas,p=scene.pickPosition(new C.Cartesian2(c.clientWidth/2,c.clientHeight/2));if(p&&C.defined(p))return p;const r=camera.getPickRay(new C.Cartesian2(c.clientWidth/2,c.clientHeight/2));return globe.pick(r,scene)||C.Cartesian3.fromDegrees(T.center[0],T.center[1])}
