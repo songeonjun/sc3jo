@@ -553,6 +553,7 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
 const FW=1920,FH=1080,FPS=30;
@@ -631,7 +632,7 @@ const F1={name:'DRT',file:'주천면_01_DRT',dur:74,
   this.walkLine=viewer.entities.add({polyline:{positions:this.walk.map(p=>cart(p,p[2]+.5)),width:6,arcType:C.ArcType.NONE,material:new C.PolylineDashMaterialProperty({color:C.Color.fromCssColorString('#ffd36a'),dashLength:18})},show:false});
   this.stopEnt=viewer.entities.add({show:false,position:cart(sp,hs[hs.length-1]+1),billboard:{image:ringImg('#ffd36a',8),width:46,height:46,disableDepthTestDistance:Number.POSITIVE_INFINITY},label:{...LBL,text:'가까운 버스정류장 · '+st.name,fillColor:C.Color.fromCssColorString('#ffd36a'),pixelOffset:new C.Cartesian2(0,-28),heightReference:C.HeightReference.NONE}});
   const person=document.createElement('canvas');person.width=person.height=64;{const x=person.getContext('2d');x.fillStyle='#fff';x.beginPath();x.arc(32,14,9,0,7);x.fill();x.fillRect(24,25,16,24);x.fillRect(25,47,6,15);x.fillRect(33,47,6,15);x.strokeStyle='#ffd36a';x.lineWidth=3;x.beginPath();x.moveTo(44,28);x.lineTo(50,62);x.stroke()}
-  this.ped=viewer.entities.add({show:false,position:new C.CallbackProperty(()=>{const u=clamp((this.tt-8)/12,0,1)*.45;const i=Math.min(this.walk.length-2,Math.floor(u*(this.walk.length-1)));const q=this.walk[i];return cart(q,q[2])},false),billboard:{image:person,width:30,height:30,verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Number.POSITIVE_INFINITY}});
+  this.ped=viewer.entities.add({show:false,position:new C.CallbackProperty(()=>{const u=clamp(((this.tt||0)-8)/12,0,1)*.45;const i=Math.max(0,Math.min(this.walk.length-2,Math.floor(u*(this.walk.length-1))));const q=this.walk[i];return cart(q,q[2])},false),billboard:{image:person,width:30,height:30,verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Number.POSITIVE_INFINITY}});
   const g0=(await gh([hp]))[0];this.hp=[hp[0],hp[1],g0];
   this.keysA=await prepKeys([{t:0,p:[128.252,37.256],head:-25,pitch:-34,range:9000},{t:7,p:[128.248,37.258],head:-5,pitch:-30,range:5200},
    {t:8.5,p:[(hp[0]+sp[0])/2,(hp[1]+sp[1])/2],head:headOf(hp,sp)*57.3+90,pitch:-32,range:900},{t:20,p:[(hp[0]+sp[0])/2,(hp[1]+sp[1])/2],head:headOf(hp,sp)*57.3+60,pitch:-26,range:650},
