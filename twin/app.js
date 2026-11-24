@@ -102,8 +102,9 @@ const pulse={};BIDS.forEach(b=>{pulse[b]=viewer.entities.add({position:C.Cartesi
 progress(.55,'DRT 경로를 지형에 맞추는 중…');
 const mdist=(a,b)=>{const k=Math.cos(a[1]*Math.PI/180);return Math.hypot((b[0]-a[0])*111320*k,(b[1]-a[1])*110540)};
 function densify(c,step=25){const o=[c[0]];for(let i=1;i<c.length;i++){const d=mdist(c[i-1],c[i]),n=Math.max(1,Math.ceil(d/step));for(let k=1;k<=n;k++)o.push([c[i-1][0]+(c[i][0]-c[i-1][0])*k/n,c[i-1][1]+(c[i][1]-c[i-1][1])*k/n])}return o}
-const RT={};const allC=[];for(const k in T.routes){const c=densify(T.routes[k].c);RT[k]={c,t:T.routes[k].t,km:T.routes[k].km};allC.push(...c.map(p=>C.Cartographic.fromDegrees(p[0],p[1])))}
-const rh=await sampleH(allC);{let i=0;for(const k in RT){const r=RT[k];r.h=r.c.map(()=>(rh[i++].height||0)+4);const cum=[0];for(let j=1;j<r.c.length;j++)cum.push(cum[j-1]+mdist(r.c[j-1],r.c[j]));r.cum=cum;r.L=cum[cum.length-1]}}
+const fixH=h=>{const ok=v=>v>120;let last=null;for(let i=0;i<h.length;i++){if(ok(h[i]))last=h[i];else if(last!=null)h[i]=last}last=null;for(let i=h.length-1;i>=0;i--){if(ok(h[i]))last=h[i];else if(last!=null&&!ok(h[i]))h[i]=last}return h};
+const RT={};const allC=[];for(const k in T.routes){let c0=T.routes[k].c.slice();const [ra,rb]=k.split('-');if(ra.startsWith('B')&&c0.length>2)c0=c0.slice(1);if(rb.startsWith('B')&&c0.length>2)c0=c0.slice(0,-1);const c=densify(c0);RT[k]={c,t:T.routes[k].t,km:T.routes[k].km};allC.push(...c.map(p=>C.Cartographic.fromDegrees(p[0],p[1])))}
+const rh=await sampleH(allC);{let i=0;for(const k in RT){const r=RT[k];r.h=fixH(r.c.map(()=>(rh[i++].height||0)+4));const cum=[0];for(let j=1;j<r.c.length;j++)cum.push(cum[j-1]+mdist(r.c[j-1],r.c[j]));r.cum=cum;r.L=cum[cum.length-1]}}
 const revC=new Map();function rev(r){if(revC.has(r))return revC.get(r);const o={c:[...r.c].reverse(),h:[...r.h].reverse(),t:r.t,km:r.km};const cum=[0];for(let j=1;j<o.c.length;j++)cum.push(cum[j-1]+mdist(o.c[j-1],o.c[j]));o.cum=cum;o.L=cum[cum.length-1];revC.set(r,o);return o}
 function idxAt(r,d){let lo=0,hi=r.cum.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(r.cum[m]<=d)lo=m;else hi=m}return[lo,hi]}
 function along(r,f){const d=clamp(f,0,1)*r.L,[lo,hi]=idxAt(r,d),s=r.cum[hi]-r.cum[lo]||1,u=(d-r.cum[lo])/s;return[r.c[lo][0]+(r.c[hi][0]-r.c[lo][0])*u,r.c[lo][1]+(r.c[hi][1]-r.c[lo][1])*u,r.h[lo]+(r.h[hi]-r.h[lo])*u]}
@@ -166,7 +167,7 @@ const thrOf=L=>L<=0.02?99:6-Math.min(5,Math.ceil(L));
 const aff=new Map();function affected(thr){if(thr>5)return{n:0,by:{}};if(aff.has(thr))return aff.get(thr);const by={};let n=0;for(const b of B)if(b.f&&b.f>=thr){n++;by[b.r]=(by[b.r]||0)+1}const o={n,by};aff.set(thr,o);return o}
 
 /* ================= scenes / UI ================= */
-const S={scene:'intro',t:14*3600,t0:0,t1:1,playing:false,drt:{veh:1,rate:.15},flood:{sc:'heavy'}};
+const S={scene:'intro',t:14*3600,t0:0,t1:1,playing:false,drt:{veh:2,rate:.15},flood:{sc:'heavy'}};
 let M=makeDRT(S.drt),FS=floodSeries(S.flood.sc);buildVehEnts(M);
 const kp=l=>`<div class="kpis">${l.map(([v,lab,c])=>`<div class="kpi ${c||''}"><b>${v}</b><span>${lab}</span></div>`).join('')}</div>`;
 function seg(sel,key,cur,fn){$$(sel+' button').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset[key])===String(cur));b.onclick=()=>{$$(sel+' button').forEach(x=>x.setAttribute('aria-pressed',x===b));fn(b.dataset[key])}})}
@@ -292,7 +293,7 @@ const RAD=C.Math.toRadians,DEG=C.Math.toDegrees;
 const offLL=(lon,lat,e,n)=>[lon+e/(111320*Math.cos(lat*Math.PI/180)),lat+n/110540];
 const gh=async ll=>(await sampleH(ll.map(p=>C.Cartographic.fromDegrees(p[0],p[1])))).map(x=>x.height||0);
 const cart=(p,h)=>C.Cartesian3.fromDegrees(p[0],p[1],h);
-async function mkRoute(c,t,km){const d=densify(c,20);const hs=await gh(d);const r={c:d,h:hs.map(x=>x+3),t,km};const cum=[0];for(let j=1;j<d.length;j++)cum.push(cum[j-1]+mdist(d[j-1],d[j]));r.cum=cum;r.L=cum[cum.length-1];return r}
+async function mkRoute(c,t,km){const d=densify(c,20);const hs=await gh(d);const r={c:d,h:fixH(hs.map(x=>x+3)),t,km};const cum=[0];for(let j=1;j<d.length;j++)cum.push(cum[j-1]+mdist(d[j-1],d[j]));r.cum=cum;r.L=cum[cum.length-1];return r}
 function subRoute(r,f0,f1){const d0=f0*r.L,d1=f1*r.L,a=along(r,f0),e=along(r,f1);const c=[[a[0],a[1]]],h=[a[2]];for(let i=0;i<r.c.length;i++)if(r.cum[i]>d0&&r.cum[i]<d1){c.push(r.c[i]);h.push(r.h[i])}c.push([e[0],e[1]]);h.push(e[2]);const o={c,h,t:r.t*(f1-f0),km:r.km*(f1-f0)};const cum=[0];for(let j=1;j<c.length;j++)cum.push(cum[j-1]+mdist(c[j-1],c[j]));o.cum=cum;o.L=cum[cum.length-1];return o}
 function revR(r){const o={c:[...r.c].reverse(),h:[...r.h].reverse(),t:r.t,km:r.km};const cum=[0];for(let j=1;j<o.c.length;j++)cum.push(cum[j-1]+mdist(o.c[j-1],o.c[j]));o.cum=cum;o.L=cum[cum.length-1];return o}
 const headOf=(a,b)=>Math.atan2((b[0]-a[0])*Math.cos(a[1]*Math.PI/180),b[1]-a[1]);
@@ -554,6 +555,7 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
 const FW=1920,FH=1080,FPS=30;
@@ -751,10 +753,10 @@ const F4={name:'스마트팜',file:'주천면_04_스마트팜',dur:70,
  enter(){dayMode();setScene('farm',0)},
  async setup(){const s1=P.S1,s2=P.S2;const ha=T.farmSites.reduce((s,f)=>s+f.ha,0);this.ha=Math.round(ha);this.irrS2=IRR.S2[0]||[H(10),H(11)];this.irrS1=IRR.S1.find(([x])=>x>Math.max(heatT,(this.irrS2[0]||0))+900)||IRR.S1[IRR.S1.length-1]||[H(15),H(16)];
   this.keysA=await prepKeys([{t:0,p:[128.258,37.248],head:-15,pitch:-36,range:10000},{t:7,p:[128.255,37.250],head:5,pitch:-34,range:7000},{t:8,p:[s2.lon,s2.lat],head:30,pitch:-26,range:520},{t:21,p:[s2.lon,s2.lat],head:110,pitch:-20,range:300},
-   {t:22,p:[s2.lon,s2.lat],head:200,pitch:-15,range:210},{t:35.5,p:[s2.lon,s2.lat],head:260,pitch:-13,range:150}]);
+   {t:22,p:[s2.lon,s2.lat],head:150,pitch:-19,range:220},{t:35.5,p:[s2.lon,s2.lat],head:210,pitch:-18,range:180}]);
   const mid=[(s2.lon+T0P[0])/2,(s2.lat+T0P[1])/2];
   this.keysB=await prepKeys([{t:36,p:[s2.lon,s2.lat],up:150,head:DEG(headOf([s2.lon,s2.lat],T0P)),pitch:-20,range:600},{t:43,p:mid,up:300,head:DEG(headOf([s2.lon,s2.lat],T0P))+20,pitch:-26,range:2200},
-   {t:44,p:[s1.lon,s1.lat],head:300,pitch:-22,range:450},{t:51,p:[s1.lon,s1.lat],head:340,pitch:-18,range:330},{t:52,p:[s1.lon,s1.lat],head:60,pitch:-15,range:200},{t:59.5,p:[s1.lon,s1.lat],head:110,pitch:-14,range:160},
+   {t:44,p:[s1.lon,s1.lat],head:300,pitch:-24,range:460},{t:51.5,p:[s1.lon,s1.lat],head:345,pitch:-22,range:330},{t:59.5,p:[s1.lon,s1.lat],head:30,pitch:-20,range:230},
    {t:60,p:[128.258,37.246],head:0,pitch:-38,range:8000},{t:70,p:[128.258,37.246],head:30,pitch:-42,range:10000}]);
   const n=IRR.S1.length+IRR.S2.length,water=(IRR.S1.concat(IRR.S2)).reduce((s,[x,y])=>s+(y-x),0)/3600*14;this.n=n;this.water=water;
   this.lines=[[1,6.5,''],[7,14,`주천면에는 스마트팜 단지 일곱 곳, 모두 ${this.ha}ha 규모의 밭이 있습니다.`],[14.5,21,'대표 밭마다 토양수분·지온·기온 센서가 10분마다 값을 보냅니다.'],
