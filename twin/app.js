@@ -551,6 +551,7 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
 const FW=1920,FH=1080,FPS=30;
@@ -573,11 +574,11 @@ const sm=u=>{u=clamp(u,0,1);return u*u*(3-2*u)};
 const ease=u=>{u=clamp(u,0,1);return u<.5?4*u*u*u:1-(-2*u+2)**3/2};
 function camAt(p,head,pitch,range){camera.lookAt(C.Cartesian3.fromDegrees(p[0],p[1],p[2]),new C.HeadingPitchRange(RAD(head),RAD(pitch),range))}
 async function prepKeys(keys){const need=keys.filter(k=>k.p&&k.p.length===2);if(need.length){const hs=await gh(need.map(k=>k.p));need.forEach((k,i)=>k.p=[k.p[0],k.p[1],hs[i]+(k.up||0)])}return keys}
-function keyCam(keys,t){let i=0;while(i<keys.length-1&&keys[i+1].t<=t)i++;const a=keys[i],b=keys[Math.min(i+1,keys.length-1)];const u=a===b?0:ease((t-a.t)/(b.t-a.t));
+function keyCam(keys,t){FOL.h=null;let i=0;while(i<keys.length-1&&keys[i+1].t<=t)i++;const a=keys[i],b=keys[Math.min(i+1,keys.length-1)];const u=a===b?0:ease((t-a.t)/(b.t-a.t));
  const p=[a.p[0]+(b.p[0]-a.p[0])*u,a.p[1]+(b.p[1]-a.p[1])*u,a.p[2]+(b.p[2]-a.p[2])*u];let dh=b.head-a.head;while(dh>180)dh-=360;while(dh<-180)dh+=360;
  camAt(p,a.head+dh*u,a.pitch+(b.pitch-a.pitch)*u,Math.exp(Math.log(a.range)+(Math.log(b.range)-Math.log(a.range))*u))}
 const FOL={h:null};
-function followCam(r,pitch,range,headOff=0,k=.06){if(!r)return;if(FOL.h==null)FOL.h=r.head;FOL.h=lerpAng(FOL.h,r.head,k);camAt([r.p[0],r.p[1],r.p[2]],DEG(FOL.h)+headOff,pitch,range)}
+function followCam(r,pitch,range,headOff=0,k=.06,pk=.18){if(!r)return;if(FOL.h==null){FOL.h=r.head;FOL.p=r.p.slice()}FOL.h=lerpAng(FOL.h,r.head,k);for(let i=0;i<3;i++)FOL.p[i]+=(r.p[i]-FOL.p[i])*pk;camAt(FOL.p,DEG(FOL.h)+headOff,pitch,range)}
 const mono=pts=>{for(let i=1;i<pts.length;i++)pts[i][1]=Math.max(pts[i][1],pts[i-1][1]+30);return pts};
 const pw=(pts,t)=>{if(t<=pts[0][0])return pts[0][1];for(let i=1;i<pts.length;i++)if(t<=pts[i][0]){const[a,va]=pts[i-1],[b,vb]=pts[i];return va+(vb-va)*(t-a)/(b-a)}return pts[pts.length-1][1]};
 const alpha=(t,a,b,f=.6)=>clamp(Math.min((t-a)/f,(b-t)/f),0,1);
@@ -709,7 +710,7 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
   this.fault=lights.reduce((a,l)=>mdist(l.p,pr.c[Math.floor(pr.c.length*.6)])<mdist(a.p,pr.c[Math.floor(pr.c.length*.6)])?l:a,lights[0]);
   this.faultMark=viewer.entities.add({show:false,position:cart(this.fault.p,this.fault.g+9),billboard:{image:ringImg('#ff4d5e',8),width:54,height:54,disableDepthTestDistance:Number.POSITIVE_INFINITY},label:{...LBL,heightReference:C.HeightReference.NONE,text:'가로등 고장 감지',fillColor:C.Color.fromCssColorString('#ff8a95'),pixelOffset:new C.Cartesian2(0,-30)}});
   const c1=cams[1]||cams[0];const mid=pr.c[Math.floor(pr.c.length*.35)];const f=this.fault.p;
-  this.keys=await prepKeys([{t:0,p:T0P,head:200,pitch:-38,range:2600},{t:7,p:T0P,head:240,pitch:-30,range:1500},{t:8,p:[this.vr.c[0][0],this.vr.c[0][1]],head:0,pitch:-20,range:260}]);
+  this.keys=await prepKeys([{t:0,p:T0P,head:200,pitch:-38,range:2600},{t:7,p:T0P,head:240,pitch:-30,range:1500},{t:8,p:[this.vr.c[0][0],this.vr.c[0][1]],head:DEG(headOf(this.vr.c[0],this.vr.c[Math.min(this.vr.c.length-1,8)])),pitch:-17,range:150}]);
   this.keys2=await prepKeys([{t:21,p:[mid[0],mid[1]],head:120,pitch:-28,range:520},{t:28,p:[mid[0],mid[1]],head:150,pitch:-22,range:300}]);
   this.keys3=await prepKeys([{t:44.5,p:[f[0],f[1]],head:60,pitch:-20,range:260},{t:52,p:[f[0],f[1]],head:20,pitch:-24,range:320},{t:53,p:T0P,head:200,pitch:-40,range:1900},{t:62,p:T0P,head:250,pitch:-40,range:2000},{t:72,p:T0P,head:300,pitch:-46,range:3200}]);
   const sav=Math.round((1-(.35*.9+1*.1))*100);this.sav=sav;
@@ -718,14 +719,14 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
    [45,52,'가로등 하나가 깜빡이다 꺼지면, 고장이 자동으로 접수되고 정비 요청이 나갑니다.'],[53,61,'모든 가로등과 CCTV는 T0 통합 관제 화면 하나에서 관리됩니다.'],[62,70.5,`필요할 때만 밝히니, 상시 점등보다 전기를 약 ${sav}% 덜 씁니다.`]]},
  update(t){S.t=t<21?H(21.5)+t*20:H(23.1)+(t-21)*20;frame(true);nightSky();
   // van
-  const vu=clamp((t-7.5)/13,0,1);if(t<21){const a=along(this.vr,vu),q=along(this.vr,Math.min(1,vu+.01));this.vp=a;this.vh=headOf(a,q);this.vo=C.Transforms.headingPitchRollQuaternion(cart(a,a[2]),new C.HeadingPitchRoll(this.vh-Math.PI/2,0,0))}else this.vp=null;this.van.show=t<21;this.head.show=t>7&&t<21;
+  const vu=clamp((t-7.5)/13,0,1);if(t<21){const a=along(this.vr,vu),q=along(this.vr,Math.min(1,vu+.035));this.vp=a;this.vh=headOf(a,q);this.vo=C.Transforms.headingPitchRollQuaternion(cart(a,a[2]),new C.HeadingPitchRoll(this.vh-Math.PI/2,0,0))}else this.vp=null;this.van.show=t<21;this.head.show=t>7&&t<21;
   // pedestrian
   const pu=clamp((t-21.5)/22.5,0,1)*.9;this.pp=t>21?along(this.pr,pu):null;this.ped.show=t>21&&t<45;this.pedRing.show=t>23&&t<45;
   const agents=[];if(this.vp&&t>7)agents.push([this.vp,60]);if(this.pp)agents.push([this.pp,t>37?110:55]);
   const fault=this.fault;this.lights.forEach(l=>{let tgt=.35;for(const[a,r]of agents){const d=mdist(l.p,a);if(d<r)tgt=Math.max(tgt,1-.3*d/r)}if(t<2)tgt*=sm(t/2);if(l===fault&&t>44.5){tgt=t<47?(Math.sin(t*40)>0?.9:.05):0}l.b+=(tgt-l.b)*.12});
   this.faultMark.show=t>47&&t<53;
   this.cams.forEach(c=>{c.hot=0;if(this.pp&&mdist(c.p,this.pp)<95&&t>22){c.hot=1;const hh=DEG(headOf(c.p,this.pp));c.h=c.h+((((hh-c.h)%360)+540)%360-180)*.15}else c.h=c.base+Math.sin(t*.6+c.base)*35});
-  if(t<8)keyCam(this.keys,t);else if(t<21){if(this.vp)followCam({p:this.vp,head:this.vh},-14,120,0,.08)}else if(t<28)keyCam(this.keys2,t);else if(t<44.5){if(this.pp){const q=along(this.pr,Math.min(1,pu+.01));followCam({p:this.pp,head:headOf(this.pp,q)},-24,170,25,.04)}}else keyCam(this.keys3,t)},
+  if(t<8)keyCam(this.keys,t);else if(t<21){if(this.vp)followCam({p:this.vp,head:this.vh},-17,150,0,.03,.12)}else if(t<28)keyCam(this.keys2,t);else if(t<44.5){if(this.pp){const q=along(this.pr,Math.min(1,pu+.01));followCam({p:this.pp,head:headOf(this.pp,q)},-24,170,25,.04)}}else keyCam(this.keys3,t)},
  overlay(t){brand('03','스마트 가로등 · CCTV');titleCard(t,0,6.6,'03','밤길을 한곳에서 지킨다','스마트 가로등 · CCTV 통합 관제');
   lower(t,8,20.6,'적응형 디밍',`평소 35% → 사람·차 접근 시 100% · 가로등 ${this.lights.length}개`,'#ffd36a');
   const hot=this.cams.filter(c=>c.hot).map(c=>c.id);alertCard(t,22.5,44,'warn','배회 감지',`${hot[0]||'CAM'} 추적 중 · 보호자·이장에게 위치 전송`);
@@ -795,13 +796,30 @@ async function renderFilm(i,o={}){const f=FILMS[i];const wait=o.wait??6;FR.statu
   FR.done.push({file:a.download,size:blob.size,sec:N/FPS,took:Math.round((realNow()-t0)/1000)});FR.status=`${f.name} 저장: ${a.download} (${(blob.size/1e6).toFixed(1)}MB)`;FR.lastBlob=blob}
  catch(e){FR.status='오류: '+e.message;console.error(e)}
  finally{VT=null;FR.cur=null;FR.fixed=null;FR.offline=false;viewer.useDefaultRenderLoop=true;camera.lookAtTransform(C.Matrix4.IDENTITY)}}
+async function renderOne(o={}){const order=o.order||[0,1,2,3];const codec=await pickCodec();if(!codec){FR.status='H.264 인코딩 미지원';return}
+ const muxer=new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(),video:{codec:'avc',width:FW,height:FH,frameRate:FPS},fastStart:'in-memory'});let err=null;
+ const enc=new VideoEncoder({output:(c,m)=>muxer.addVideoChunk(c,m),error:e=>{err=e;console.error(e)}});enc.configure({codec,width:FW,height:FH,bitrate:o.bitrate??9e6,framerate:FPS});
+ const total=order.reduce((s,i)=>s+Math.round(FILMS[i].dur*FPS),0);let gf=0;const t0=realNow();const wait=o.wait??6;
+ try{for(const i of order){const f=FILMS[i];await prepFilm(f);fixRes();await document.fonts.load(`900 40px ${FONT}`);await document.fonts.load(`700 38px ${FONT}`);
+   const N=Math.round(f.dur*FPS);viewer.useDefaultRenderLoop=false;FR.offline=true;FOL.h=null;const base=realNow();
+   for(let fr=0;fr<N;fr++,gf++){if(FR.abort)throw new Error('중단');VT=base+fr*1000/FPS;FR.fixed=fr/FPS;FR.cur=f;FR.lastU=null;viewer.render();
+    if(fr===0){let w=0;while(!globe.tilesLoaded&&w<300){await sleepReal(50);viewer.render();w++}}else{let k=0;while(!globe.tilesLoaded&&k<wait){await sleepReal(35);viewer.render();k++}}
+    const fade=Math.max(0,1-fr/12,(fr-(N-15))/15);if(fade>0&&gf>0){g.fillStyle=`rgba(0,0,0,${Math.min(1,fade)})`;g.fillRect(0,0,FW,FH)}
+    const vf=new VideoFrame(comp,{timestamp:Math.round(gf*1e6/FPS),duration:Math.round(1e6/FPS)});enc.encode(vf,{keyFrame:gf%(FPS*2)===0});vf.close();
+    while(enc.encodeQueueSize>4)await tick();if(err)throw err;
+    if(gf%15===0){const el=(realNow()-t0)/1000;FR.status=`통합본 렌더 ${gf+1}/${total} (${f.name}) · 남은 시간 약 ${Math.round(el/(gf+1)*(total-gf-1)/60)}분`;await tick()}}
+   FR.cur=null;camera.lookAtTransform(C.Matrix4.IDENTITY)}
+  await enc.flush();muxer.finalize();const blob=new Blob([muxer.target.buffer],{type:'video/mp4'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(o.name||'주천면_스마트시티_시뮬레이션_통합본')+'.mp4';document.body.appendChild(a);a.click();
+  FR.done.push({file:a.download,size:blob.size,sec:total/FPS,took:Math.round((realNow()-t0)/1000)});FR.status=`통합본 저장: ${a.download} (${(blob.size/1e6).toFixed(0)}MB)`;FR.lastBlob=blob}
+ catch(e){FR.status='오류: '+e.message;console.error(e)}
+ finally{VT=null;FR.cur=null;FR.fixed=null;FR.offline=false;viewer.useDefaultRenderLoop=true;camera.lookAtTransform(C.Matrix4.IDENTITY)}}
 async function renderAll(o={}){FR.abort=false;for(let i=0;i<FILMS.length;i++){await renderFilm(i,o);if(FR.abort)break}FR.status='4편 모두 렌더 완료'}
 async function playAll(record,warm=true){for(let i=0;i<FILMS.length;i++){if(warm)await play(i,false);await play(i,record);cleanupScene()}FR.status='모두 끝'}
-ui.innerHTML=`<b>영상 제작 모드 · 1920×1080</b><div class="row">${FILMS.map((f,i)=>`<button data-p="${i}">▶ ${i+1} ${f.name}</button>`).join('')}</div><div class="row">${FILMS.map((f,i)=>`<button data-r="${i}">● 녹화 ${i+1}</button>`).join('')}<button data-all>● 4편 모두 녹화(실시간)</button><button data-off>◆ 4편 고화질 렌더</button></div><div id="fst">준비</div>`;
-ui.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.p)play(+b.dataset.p,false);else if(b.dataset.r)(async()=>{await play(+b.dataset.r,false);await play(+b.dataset.r,true)})();else if(b.hasAttribute('data-all'))playAll(true);else if(b.hasAttribute('data-off'))renderAll()};
+ui.innerHTML=`<b>영상 제작 모드 · 1920×1080</b><div class="row">${FILMS.map((f,i)=>`<button data-p="${i}">▶ ${i+1} ${f.name}</button>`).join('')}</div><div class="row">${FILMS.map((f,i)=>`<button data-r="${i}">● 녹화 ${i+1}</button>`).join('')}<button data-all>● 4편 모두 녹화(실시간)</button><button data-off>◆ 4편 고화질 렌더</button><button data-one>◆ 통합본 1편 렌더</button></div><div id="fst">준비</div>`;
+ui.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.p)play(+b.dataset.p,false);else if(b.dataset.r)(async()=>{await play(+b.dataset.r,false);await play(+b.dataset.r,true)})();else if(b.hasAttribute('data-all'))playAll(true);else if(b.hasAttribute('data-off'))renderAll();else if(b.hasAttribute('data-one'))renderOne()};
 setInterval(()=>{const s=$('#fst');if(s)s.textContent=FR.status+(FR.cur?` · ${FR.t.toFixed(1)}s / ${FR.cur.dur}s`:'')},250);
 addEventListener('resize',()=>setTimeout(fixRes,50));
-window.__film={FILMS,play,playAll,renderFilm,renderAll,FR,comp,seek:async(i,t)=>{const f=FILMS[i];if(FR.cur!==f)await prepFilm(f);FR.fixed=t;FR.cur=f;FOL.h=null},script:()=>FILMS.map(f=>({file:f.file,name:f.name,dur:f.dur,lines:(f.lines||[]).filter(l=>l[2])}))};
+window.__film={FILMS,play,playAll,renderFilm,renderAll,renderOne,FR,comp,seek:async(i,t)=>{const f=FILMS[i];if(FR.cur!==f)await prepFilm(f);FR.fixed=t;FR.cur=f;FOL.h=null},script:()=>FILMS.map(f=>({file:f.file,name:f.name,dur:f.dur,lines:(f.lines||[]).filter(l=>l[2])}))};
 }
 
 /* start */
