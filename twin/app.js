@@ -122,11 +122,11 @@ function makeDRT({veh=1,rate=.15,seed=7}){const r=rng(seed),calls=[];let id=0;
    for(const b of visit){const L=leg(cur,b);if(L){v.segs.push({r:L,ts:tc,te:tc+L.t,load:riders.length+ob.filter(c=>!c.done).length});tc+=L.t;v.km+=L.km}let nb=0;
     for(const c of pend)if(c.b===b&&c.dir==='in'&&!c.done&&c.t<=tc){c.pick=tc;c.wait=tc-c.t;c.done=true;riders.push(c);nb++}
     for(const c of ob)if(c.b===b&&!c.done){c.drop=tc;c.wait=c.board-c.t;c.ride=tc-c.board;c.done=true;nb++}
-    const dw=60+nb*20;v.segs.push({at:b,ts:tc,te:tc+dw,load:riders.length});tc+=dw;cur=b}
+    const dw=60+nb*20;v.segs.push({at:b,ts:tc,te:tc+dw,load:riders.length,pp:L?[L.c[L.c.length-1][0],L.c[L.c.length-1][1],L.h[L.h.length-1]]:null});tc+=dw;cur=b}
    const L=leg(cur,'T0');if(L){v.segs.push({r:L,ts:tc,te:tc+L.t,load:riders.length});tc+=L.t;v.km+=L.km}riders.forEach(c=>{c.ride=tc-c.pick});v.avail=tc+120}}
  return{calls,vehs}}
 const T0P=[P.T0.lon,P.T0.lat];
-function vehAt(v,t){for(const s of v.segs){if(t>=s.ts&&t<s.te){if(s.r){const f=(t-s.ts)/(s.te-s.ts);return{p:along(s.r,f),q:along(s.r,Math.min(1,f+.004)),st:'운행 중',load:s.load,mv:1,seg:s}}const p=P[s.at];return{p:[p.lon,p.lat,0],st:short(p.name)+' 정차',load:s.load,mv:0}}if(s.ts>t)break}return{p:[T0P[0],T0P[1],0],st:'대합실 대기',load:0,mv:0}}
+function vehAt(v,t){for(const s of v.segs){if(t>=s.ts&&t<s.te){if(s.r){const f=(t-s.ts)/(s.te-s.ts);return{p:along(s.r,f),q:along(s.r,Math.min(1,f+.004)),st:'운행 중',load:s.load,mv:1,seg:s}}const p=P[s.at];return{p:s.pp||[p.lon,p.lat,0],st:short(p.name)+' 정차',load:s.load,mv:0}}if(s.ts>t)break}return{p:[T0P[0],T0P[1],0],st:'대합실 대기',load:0,mv:0}}
 function trail(v,t,len=1200){const pts=[];for(const s of v.segs){if(!s.r||s.te<t-len||s.ts>t)continue;const a=clamp((t-len-s.ts)/(s.te-s.ts),0,1),b=clamp((t-s.ts)/(s.te-s.ts),0,1);if(b<=a)continue;const da=a*s.r.L,db=b*s.r.L;const p0=along(s.r,a);pts.push(p0);for(let i=0;i<s.r.c.length;i++)if(s.r.cum[i]>da&&s.r.cum[i]<db)pts.push([s.r.c[i][0],s.r.c[i][1],s.r.h[i]]);pts.push(along(s.r,b))}return pts}
 function drtStats(M,t){const done=M.calls.filter(c=>(c.pick!=null&&c.pick<=t)||(c.board!=null&&c.board<=t));const w=done.map(c=>c.wait).filter(x=>x!=null);const km=M.vehs.reduce((s,v)=>s+v.segs.filter(g=>g.r&&g.te<=t).reduce((a,g)=>a+g.r.km,0),0);
  return{called:M.calls.filter(c=>c.t<=t).length,done:done.length,wait:w.length?w.reduce((a,b)=>a+b,0)/w.length:0,maxw:w.length?Math.max(...w):0,km,moving:M.vehs.filter(v=>vehAt(v,t).mv).length}}
@@ -552,6 +552,7 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
 const FW=1920,FH=1080,FPS=30;
@@ -572,7 +573,11 @@ const ui=document.createElement('div');ui.id='filmui';document.body.appendChild(
 /* ---------- helpers ---------- */
 const sm=u=>{u=clamp(u,0,1);return u*u*(3-2*u)};
 const ease=u=>{u=clamp(u,0,1);return u<.5?4*u*u*u:1-(-2*u+2)**3/2};
-function camAt(p,head,pitch,range){camera.lookAt(C.Cartesian3.fromDegrees(p[0],p[1],p[2]),new C.HeadingPitchRange(RAD(head),RAD(pitch),range))}
+const CLR={dp:0};
+function camAt(p,head,pitch,range){const tg=C.Cartesian3.fromDegrees(p[0],p[1],p[2]);let need=0;
+ for(let k=0;k<12;k++){camera.lookAt(tg,new C.HeadingPitchRange(RAD(head),RAD(Math.max(-80,pitch-need)),range));const cg=camera.positionCartographic,gh2=globe.getHeight(cg);if(gh2==null||cg.height-gh2>=22)break;need+=3}
+ CLR.dp=need>CLR.dp?CLR.dp+(need-CLR.dp)*.25:CLR.dp*.96;camera.lookAt(tg,new C.HeadingPitchRange(RAD(head),RAD(Math.max(-80,pitch-Math.max(CLR.dp,need*.6))),range))}
+ssc.enableCollisionDetection=false;
 async function prepKeys(keys){const need=keys.filter(k=>k.p&&k.p.length===2);if(need.length){const hs=await gh(need.map(k=>k.p));need.forEach((k,i)=>k.p=[k.p[0],k.p[1],hs[i]+(k.up||0)])}return keys}
 function keyCam(keys,t){FOL.h=null;let i=0;while(i<keys.length-1&&keys[i+1].t<=t)i++;const a=keys[i],b=keys[Math.min(i+1,keys.length-1)];const u=a===b?0:ease((t-a.t)/(b.t-a.t));
  const p=[a.p[0]+(b.p[0]-a.p[0])*u,a.p[1]+(b.p[1]-a.p[1])*u,a.p[2]+(b.p[2]-a.p[2])*u];let dh=b.head-a.head;while(dh>180)dh-=360;while(dh<-180)dh+=360;
@@ -615,9 +620,11 @@ function drtCompare(){const rows=BIDS.map(b=>{const calls=M.calls.filter(c=>c.b=
  const walk=T.bInfo[b].stopDist/.8,old=walk+3600+RT[b+'-T0'].t*1.25,nw=w+ride;return{b,name:short(P[b].name).replace(' ',''),old:old/60,nw:nw/60,walk:walk/60}});const o=rows.reduce((s,r)=>s+r.old,0)/rows.length,n=rows.reduce((s,r)=>s+r.nw,0)/rows.length;return{rows,old:o,nw:n,pct:Math.round((1-n/o)*100)}}
 const F1={name:'DRT',file:'주천면_01_DRT',dur:74,
  enter(){dayMode();setScene('drt',0)},
- async setup(){S.drt={veh:1,rate:.15};M=makeDRT(S.drt);buildVehEnts(M);this.cmp=drtCompare();const b='B5';this.b=b;const st=nearStop(b);this.stop=st;
-  const call=M.calls.filter(c=>c.b===b&&c.dir==='in'&&c.pick!=null&&c.t>H(8.7)).sort((x,y)=>x.t-y.t)[0]||M.calls.find(c=>c.dir==='in'&&c.pick!=null);this.call=call;
-  const v=vehEnts.find(e=>e.v.z===ZONE_OF[call.b]);this.ve=v;
+ async setup(){S.drt={veh:2,rate:.15};M=makeDRT(S.drt);buildVehEnts(M);this.cmp=drtCompare();
+  const ins=M.calls.filter(c=>c.dir==='in'&&c.pick!=null&&c.wait!=null);const avg=ins.reduce((x,c)=>x+c.wait,0)/ins.length;this.avg=avg;
+  const cand=ins.filter(c=>c.t>H(8.6)&&c.t<H(15)&&c.wait>=300&&T.bInfo[c.b].stopDist>500).sort((x,y)=>Math.abs(x.wait-avg)-Math.abs(y.wait-avg)+(x.t-y.t)*1e-6);
+  const call=cand[0]||ins[0];this.call=call;const b=call.b;this.b=b;const st=nearStop(b);this.stop=st;
+  const v=vehEnts.find(e=>e.v.segs.some(s2=>s2.at===call.b&&Math.abs(s2.ts-call.pick)<2))||vehEnts.find(e=>e.v.z===ZONE_OF[call.b]);this.ve=v;
   // arrival at T0 after pick
   let arr=call.pick+1200;for(const s2 of v.v.segs)if(s2.r&&s2.ts>=call.pick&&s2.r.c[s2.r.c.length-1]&&mdist(s2.r.c[s2.r.c.length-1],T0P)<60){arr=s2.te;break}this.arr=arr;
   const hp=[P[b].lon,P[b].lat],sp=[st.lon,st.lat];const path=densify([hp,sp],10);const hs=await gh(path);this.walk=path.map((p,i)=>[p[0],p[1],hs[i]+1.2]);
@@ -630,17 +637,17 @@ const F1={name:'DRT',file:'주천면_01_DRT',dur:74,
    {t:8.5,p:[(hp[0]+sp[0])/2,(hp[1]+sp[1])/2],head:headOf(hp,sp)*57.3+90,pitch:-32,range:900},{t:20,p:[(hp[0]+sp[0])/2,(hp[1]+sp[1])/2],head:headOf(hp,sp)*57.3+60,pitch:-26,range:650},
    {t:22,p:hp,head:200,pitch:-22,range:420},{t:28,p:hp,head:150,pitch:-18,range:300}]);
   this.keysC=await prepKeys([{t:46,p:T0P,head:210,pitch:-24,range:700},{t:50,p:T0P,head:180,pitch:-26,range:800},{t:51,p:[128.25,37.257],head:-20,pitch:-36,range:9500},{t:66,p:[128.25,37.257],head:25,pitch:-36,range:9000},{t:74,p:[128.25,37.257],head:40,pitch:-40,range:11000}]);
-  const c=this.cmp;this.lines=[[1,6.5,''],[7,12.4,'신일2리 어르신이 버스를 타려면, 가장 가까운 정류장까지 약 1km를 걸어야 합니다.'],[12.6,20.5,'걸어서 20분. 버스를 놓치면 다음 차가 올 때까지 한참을 기다려야 하죠.'],
+  const c=this.cmp;const nm=short(P[b].name).replace(' ',''),sd=T.bInfo[b].stopDist,wm=Math.round(sd/.8/60);this.nm=nm;this.lines=[[1,6.5,''],[7,12.4,`${nm} 어르신이 버스를 타려면, 가장 가까운 정류장까지 약 ${sd>=950?(sd/1000).toFixed(1)+'km':Math.round(sd/10)*10+'m'}를 걸어야 합니다.`],[12.6,20.5,`걸어서 ${wm}분. 버스를 놓치면 다음 차가 올 때까지 한참을 기다려야 하죠.`],
    [22,28.6,'DRT는 마을회관 호출벨 하나로 시작합니다. 벨을 누르면 권역 차량이 배정됩니다.'],[29,37,'승합차는 실제 도로의 최단 경로로 회관에 들러 어르신을 태우고,'],[37.4,45,'같은 방향의 다른 마을 호출까지 묶어서 T0 대합실로 향합니다.'],[46,50.5,'대합실 도착. 여기서 시내·시외버스로 갈아탑니다.'],
-   [51.5,58,'서부·남부 다섯 마을의 대합실까지 이동 시간을 비교해 보면,'],[58.4,65.5,`기존 평균 ${Math.round(c.old)}분에서 DRT ${Math.round(c.nw)}분, 약 ${c.pct}% 줄어듭니다.`],[66.5,73.5,'차량 두 대로 다섯 마을을 맡는, 작은 마을에 맞는 교통입니다.']]},
+   [51.5,58,'서부·남부 다섯 마을의 대합실까지 이동 시간을 비교해 보면,'],[58.4,65.5,`기존 평균 ${Math.round(c.old)}분에서 DRT ${Math.round(c.nw)}분, 약 ${c.pct}% 줄어듭니다.`],[66.5,73.5,'권역마다 두 대, 모두 네 대로 다섯 마을을 맡는, 작은 마을에 맞는 교통입니다.']]},
  simT(t){if(!this.mp)this.mp=mono([[22,this.call.t-120],[28,this.call.t+60],[29,this.call.pick-420],[45,this.arr]]);return t<22?H(9):t<46?pw(this.mp,t):this.mp[3][1]+(t-46)*60},
  update(t){this.tt=t;S.t=this.simT(t);frame(true);this.walkLine.show=t>7.5&&t<21.5;this.stopEnt.show=t>7.5&&t<21.5;this.ped.show=t>8&&t<21.5;
   if(t<29)keyCam(this.keysA,t);else if(t<46){const a=vehAt(this.ve.v,S.t);if(a.mv){this.lh=headOf(a.p,a.q);this.lp=a.p}if(this.lp)followCam({p:this.lp,head:this.lh},-19,t<31?320:200,0,.05)}else keyCam(this.keysC,t)},
  overlay(t){brand('01','DRT 수요응답형 교통');titleCard(t,0,6.6,'01','부르면 오는 마을버스','DRT · 이동 시간과 효율');
-  lower(t,8.5,21.2,'지금: 걸어서 정류장까지',`신일2리 회관 → ${this.stop.name} ${Math.round(T.bInfo.B5.stopDist)}m · 어르신 걸음(0.8m/s) 약 ${Math.round(T.bInfo.B5.stopDist/.8/60)}분 · 배차 간격 2시간 가정`,'#ffd36a');
-  const c=this.call;if(t>=22&&t<46){const st=S.t;lower(t,22.3,45.6,'DRT 호출 → 탑승 → 대합실',`호출 ${hhmm(c.t)}${st>=c.pick?` · 탑승 ${hhmm(c.pick)} (대기 ${Math.round(c.wait/60)}분)`:''}${st>=this.arr?` · 도착 ${hhmm(this.arr)}`:''}`,'#ff4fa3');
+  lower(t,8.5,21.2,'지금: 걸어서 정류장까지',`${this.nm} 회관 → ${this.stop.name} ${Math.round(T.bInfo[this.b].stopDist)}m · 어르신 걸음(0.8m/s) 약 ${Math.round(T.bInfo[this.b].stopDist/.8/60)}분 · 배차 간격 2시간 가정`,'#ffd36a');
+  const c=this.call;if(t>=22&&t<46){const st=S.t;lower(t,22.3,45.6,'DRT 호출 → 탑승 → 대합실',`${this.nm} · 호출 ${hhmm(c.t)}${st>=c.pick?` · 탑승 ${hhmm(c.pick)} (대기 ${Math.round(c.wait/60)}분)`:''}${st>=this.arr?` · 도착 ${hhmm(this.arr)}`:''} · 평균 대기 ${Math.round(this.avg/60)}분`,'#ff4fa3');
    const s=drtStats(M,st);kpis(t,23,45.6,[[`${Math.round(s.km)}km`,'누적 운행 거리'],[`${(s.wait/60).toFixed(1)}분`,'평균 호출 대기','#3ee6c1'],[hhmm(st),'시각']])}
-  if(t>=51)this.chart(t);endCard(t,66,74.5,`평균 ${Math.round(this.cmp.old)}분 → ${Math.round(this.cmp.nw)}분`,`이동 시간 약 ${this.cmp.pct}% 단축 · 권역당 차량 1대로 5개 마을`);sub(t,this.lines);vignette()},
+  if(t>=51)this.chart(t);endCard(t,66,74.5,`평균 ${Math.round(this.cmp.old)}분 → ${Math.round(this.cmp.nw)}분`,`이동 시간 약 ${this.cmp.pct}% 단축 · 권역당 차량 2대(총 4대)로 5개 마을`);sub(t,this.lines);vignette()},
  chart(t){const al=alpha(t,51,66.2,.6);if(al<=0)return;const c=this.cmp,x0=1000,y0=280,W=840,rowH=118;g.save();g.globalAlpha=al;rr(x0-30,y0-70,W+60,c.rows.length*rowH+150,20);g.fillStyle='rgba(6,10,18,.84)';g.fill();
   txt('대합실까지 걸리는 시간 (분)',x0,y0-20,28,800);txt('기존 = 정류장 도보 + 평균 대기 60분(가정) + 버스 · DRT = 시뮬레이션 대기 + 탑승',x0,y0+12,16,500,'#9aabc4');const mx=Math.max(...c.rows.map(r=>r.old))*1.05;
   c.rows.forEach((r,i)=>{const y=y0+40+i*rowH,u=sm((t-52-i*.5)/1.6);txt(`${r.b} ${r.name}`,x0,y+24,22,700,'#e6edf7');const bw=W-150;g.fillStyle='rgba(255,211,106,.85)';g.fillRect(x0,y+36,bw*r.old/mx*u,26);g.fillStyle='#ff4fa3';g.fillRect(x0,y+68,bw*r.nw/mx*u,26);
