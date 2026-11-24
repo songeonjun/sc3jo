@@ -556,6 +556,7 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
 const FW=1920,FH=1080,FPS=30;
@@ -699,9 +700,9 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
   const pts=[];T.roads.forEach(r=>{const c=densify(r.c,34);c.forEach((p,i)=>{if(mdist(p,T0P)<760&&i%1===0){const q=c[Math.min(c.length-1,i+1)],o=c[Math.max(0,i-1)];const h=headOf(o,q);const side=(i%2?1:-1)*6;pts.push({p:offLL(p[0],p[1],Math.cos(h)*side,-Math.sin(h)*side),w:r.w})}})});
   const L=[];pts.forEach(q=>{if(L.every(o=>mdist(o.p,q.p)>24))L.push(q)});const lights=L.slice(0,LITE?160:340);const hs=await gh(lights.map(l=>l.p));lights.forEach((l,i)=>l.g=hs[i]);this.lights=lights;
   const glow=glowImg(255,214,150,.18),pool=glowImg(255,190,110,.05);
-  lights.forEach((l,i)=>{l.b=.35;l.ent=viewer.entities.add({position:cart(l.p,l.g+7),billboard:{image:glow,width:16,height:16,sizeInMeters:true,color:new C.CallbackProperty(()=>new C.Color(1,1,1,Math.min(1,l.b*1.1)),false),disableDepthTestDistance:1500},point:{pixelSize:new C.CallbackProperty(()=>2+4*l.b,false),color:new C.CallbackProperty(()=>new C.Color(1,.93,.78,Math.min(1,.4+l.b)),false),disableDepthTestDistance:1500}});
+  lights.forEach((l,i)=>{l.b=.35;l.ent=viewer.entities.add({position:cart(l.p,l.g+7),billboard:{image:glow,width:new C.CallbackProperty(()=>8+16*l.b,false),height:new C.CallbackProperty(()=>8+16*l.b,false),sizeInMeters:true,color:new C.CallbackProperty(()=>new C.Color(1,1,1,Math.min(1,l.b*1.1)),false),disableDepthTestDistance:1500},point:{pixelSize:new C.CallbackProperty(()=>2+4*l.b,false),color:new C.CallbackProperty(()=>new C.Color(1,.93,.78,Math.min(1,.4+l.b)),false),disableDepthTestDistance:1500}});
    l.pole=viewer.entities.add({position:cart(l.p,l.g+3.5),cylinder:{length:7,topRadius:.08,bottomRadius:.1,material:C.Color.fromCssColorString('#3a414c')}});
-   if(i%2===0)l.pool=viewer.entities.add({position:C.Cartesian3.fromDegrees(l.p[0],l.p[1]),ellipse:{semiMajorAxis:15,semiMinorAxis:15,material:new C.ImageMaterialProperty({image:pool,transparent:true,color:new C.Color(1,1,1,.95)}),classificationType:C.ClassificationType.TERRAIN}})});
+   if(i%2===0)l.pool=viewer.entities.add({position:C.Cartesian3.fromDegrees(l.p[0],l.p[1]),ellipse:{semiMajorAxis:15,semiMinorAxis:15,material:new C.ImageMaterialProperty({image:pool,transparent:true,color:new C.Color(1,1,1,.4)}),classificationType:C.ClassificationType.TERRAIN}})});
   // CCTV
   const cams=[];lights.filter(l=>l.w>=6).concat(lights).forEach(l=>{if(cams.length<8&&mdist(l.p,T0P)<620&&cams.every(c=>mdist(c.p,l.p)>200))cams.push({p:l.p,g:l.g})});this.cams=cams;
   const camIcon=document.createElement('canvas');camIcon.width=camIcon.height=64;{const x=camIcon.getContext('2d');x.fillStyle='#0b1220';x.beginPath();x.arc(32,32,26,0,7);x.fill();x.strokeStyle='#7fd3ff';x.lineWidth=4;x.stroke();x.fillStyle='#7fd3ff';x.fillRect(16,24,24,16);x.beginPath();x.moveTo(40,28);x.lineTo(50,22);x.lineTo(50,42);x.lineTo(40,36);x.fill()}
@@ -714,26 +715,26 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
   this.ped=viewer.entities.add({show:false,position:new C.CallbackProperty(()=>cart(this.pp||T0P,(this.pp&&this.pp[2])||0),false),billboard:{image:person,width:30,height:30,verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Number.POSITIVE_INFINITY},label:{...LBL,heightReference:C.HeightReference.NONE,text:'배회 어르신 (가상)',font:'700 13px "Noto Sans KR"',fillColor:C.Color.fromCssColorString('#ffb070'),pixelOffset:new C.Cartesian2(0,-36)}});
   this.pedRing=viewer.entities.add({show:false,position:new C.CallbackProperty(()=>cart(this.pp||T0P,((this.pp&&this.pp[2])||0)+.5),false),billboard:{image:ringImg('#ff8a3d',7),width:50,height:50,disableDepthTestDistance:Number.POSITIVE_INFINITY}});
   // van passing (route into T0)
-  const vr=RT['B8-T0'];this.vr=subRoute(vr,.55,1);this.van=viewer.entities.add({position:new C.CallbackProperty(()=>this.vp?C.Cartesian3.fromDegrees(this.vp[0],this.vp[1],0):cart(T0P,0),false),orientation:new C.CallbackProperty(()=>this.vo||C.Quaternion.IDENTITY,false),model:{uri:MODELS.south,minimumPixelSize:28,heightReference:C.HeightReference.CLAMP_TO_GROUND}});
+  const vr=RT['B8-T0'];this.vr=subRoute(vr,Math.max(0,1-420/vr.L),Math.max(.05,1-220/vr.L));this.van=viewer.entities.add({position:new C.CallbackProperty(()=>this.vp?C.Cartesian3.fromDegrees(this.vp[0],this.vp[1],0):cart(T0P,0),false),orientation:new C.CallbackProperty(()=>this.vo||C.Quaternion.IDENTITY,false),model:{uri:MODELS.south,minimumPixelSize:28,heightReference:C.HeightReference.CLAMP_TO_GROUND}});
   this.head=viewer.entities.add({position:new C.CallbackProperty(()=>this.vp?cart(offLL(this.vp[0],this.vp[1],Math.sin(this.vh||0)*14,Math.cos(this.vh||0)*14),this.vp[2]):cart(T0P,0),false),billboard:{image:glowImg(255,250,230,.2),width:4,height:4,sizeInMeters:true}});
   // faulty lamp
-  this.fault=lights.reduce((a,l)=>mdist(l.p,pr.c[Math.floor(pr.c.length*.6)])<mdist(a.p,pr.c[Math.floor(pr.c.length*.6)])?l:a,lights[0]);
+  this.p0=.3;this.p1=Math.min(.98,this.p0+95/pr.L);const pe=along(pr,Math.min(.99,this.p1+30/pr.L));this.fault=lights.reduce((a,l)=>mdist(l.p,pe)<mdist(a.p,pe)?l:a,lights[0]);
   this.faultMark=viewer.entities.add({show:false,position:cart(this.fault.p,this.fault.g+9),billboard:{image:ringImg('#ff4d5e',8),width:54,height:54,disableDepthTestDistance:Number.POSITIVE_INFINITY},label:{...LBL,heightReference:C.HeightReference.NONE,text:'가로등 고장 감지',fillColor:C.Color.fromCssColorString('#ff8a95'),pixelOffset:new C.Cartesian2(0,-30)}});
   const c1=cams[1]||cams[0];const mid=pr.c[Math.floor(pr.c.length*.35)];const f=this.fault.p;
   this.keys=await prepKeys([{t:0,p:T0P,head:200,pitch:-38,range:2600},{t:7,p:T0P,head:240,pitch:-30,range:1500},{t:8,p:[this.vr.c[0][0],this.vr.c[0][1]],head:DEG(headOf(this.vr.c[0],this.vr.c[Math.min(this.vr.c.length-1,8)])),pitch:-17,range:150}]);
   this.keys2=await prepKeys([{t:21,p:[mid[0],mid[1]],head:120,pitch:-28,range:520},{t:28,p:[mid[0],mid[1]],head:150,pitch:-22,range:300}]);
   this.keys3=await prepKeys([{t:44.5,p:[f[0],f[1]],head:60,pitch:-20,range:260},{t:52,p:[f[0],f[1]],head:20,pitch:-24,range:320},{t:53,p:T0P,head:200,pitch:-40,range:1900},{t:62,p:T0P,head:250,pitch:-40,range:2000},{t:72,p:T0P,head:300,pitch:-46,range:3200}]);
   const sav=Math.round((1-(.35*.9+1*.1))*100);this.sav=sav;
-  this.lines=[[1,6.5,''],[7,14,`밤 9시 반, 주천리 시가지. 스마트 가로등 ${lights.length}개가 평소엔 35% 밝기로 켜져 있습니다.`],[14.5,21,'사람이나 차가 다가오면, 앞쪽 가로등부터 100%로 밝아집니다.'],
+  this.lines=[[1,6.5,''],[7,14,`밤 9시 반, 주천리 시가지. 스마트 가로등 ${lights.length}개가 평소엔 35% 밝기로 어둡게 켜져 있습니다.`],[14.5,21,'차가 다가오면, 가는 길 앞쪽 가로등만 100%로 밝아지고 지나가면 다시 어두워집니다.'],
    [22,29,'밤 11시. CCTV가 혼자 걷는 어르신을 감지합니다.'],[29.5,36.5,'관제센터는 카메라를 이어 가며 동선을 따라가고, 보호자와 이장에게 위치를 보냅니다.'],[37,44,'가는 길의 가로등은 미리 밝아집니다.'],
    [45,52,'가로등 하나가 깜빡이다 꺼지면, 고장이 자동으로 접수되고 정비 요청이 나갑니다.'],[53,61,'모든 가로등과 CCTV는 T0 통합 관제 화면 하나에서 관리됩니다.'],[62,70.5,`필요할 때만 밝히니, 상시 점등보다 전기를 약 ${sav}% 덜 씁니다.`]]},
  update(t){S.t=t<21?H(21.5)+t*20:H(23.1)+(t-21)*20;frame(true);nightSky();
   // van
   const vu=clamp((t-7.5)/13,0,1);if(t<21){const a=along(this.vr,vu),q=along(this.vr,Math.min(1,vu+.035));this.vp=a;this.vh=headOf(a,q);this.vo=C.Transforms.headingPitchRollQuaternion(cart(a,a[2]),new C.HeadingPitchRoll(this.vh-Math.PI/2,0,0))}else this.vp=null;this.van.show=t<21;this.head.show=t>7&&t<21;
   // pedestrian
-  const pu=clamp((t-21.5)/22.5,0,1)*.9;this.pp=t>21?along(this.pr,pu):null;this.ped.show=t>21&&t<45;this.pedRing.show=t>23&&t<45;
-  const agents=[];if(this.vp&&t>7)agents.push([this.vp,60]);if(this.pp)agents.push([this.pp,t>37?110:55]);
-  const fault=this.fault;this.lights.forEach(l=>{let tgt=.35;for(const[a,r]of agents){const d=mdist(l.p,a);if(d<r)tgt=Math.max(tgt,1-.3*d/r)}if(t<2)tgt*=sm(t/2);if(l===fault&&t>44.5){tgt=t<47?(Math.sin(t*40)>0?.9:.05):0}l.b+=(tgt-l.b)*.12});
+  const pu=this.p0+clamp((t-21.5)/22.5,0,1)*(this.p1-this.p0);this.pp=t>21?along(this.pr,pu):null;this.ped.show=t>21&&t<45;this.pedRing.show=t>23&&t<45;
+  const agents=[];if(this.vp&&t>7)agents.push({p:this.vp,h:this.vh,ahead:85,back:12});if(this.pp){const q=along(this.pr,Math.min(1,pu+.02));agents.push({p:this.pp,h:headOf(this.pp,q),ahead:t>37?75:40,back:8})}
+  const fault=this.fault;this.lights.forEach(l=>{let tgt=.18;for(const A of agents){const k=Math.cos(A.p[1]*Math.PI/180),dx=(l.p[0]-A.p[0])*111320*k,dy=(l.p[1]-A.p[1])*110540;const fw=dx*Math.sin(A.h)+dy*Math.cos(A.h),lat=Math.abs(dx*Math.cos(A.h)-dy*Math.sin(A.h));if(lat<22&&fw>-A.back&&fw<A.ahead){const e=fw<0?1+fw/A.back*.5:1-Math.max(0,fw-A.ahead*.7)/(A.ahead*.3)*.6;tgt=Math.max(tgt,clamp(e,.18,1))}}if(t<2)tgt*=sm(t/2);if(l===fault&&t>44.5){tgt=t<47?(Math.sin(t*40)>0?.9:.05):0}l.b+=(tgt-l.b)*.12});
   this.faultMark.show=t>47&&t<53;
   this.cams.forEach(c=>{c.hot=0;if(this.pp&&mdist(c.p,this.pp)<95&&t>22){c.hot=1;const hh=DEG(headOf(c.p,this.pp));c.h=c.h+((((hh-c.h)%360)+540)%360-180)*.15}else c.h=c.base+Math.sin(t*.6+c.base)*35});
   if(t<8)keyCam(this.keys,t);else if(t<21){if(this.vp)followCam({p:this.vp,head:this.vh},-17,150,0,.03,.12)}else if(t<28)keyCam(this.keys2,t);else if(t<44.5){if(this.pp){const q=along(this.pr,Math.min(1,pu+.01));followCam({p:this.pp,head:headOf(this.pp,q)},-24,170,25,.04)}}else keyCam(this.keys3,t)},
