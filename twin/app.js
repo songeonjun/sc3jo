@@ -302,7 +302,7 @@ const lerpAng=(a,b,k)=>{let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)
 let REALJD=C.JulianDate.now();
 {const _u=C.ParticleSystem.prototype.update;C.ParticleSystem.prototype.update=function(fs){const t=fs.time;fs.time=REALJD;try{_u.call(this,fs)}finally{fs.time=t}}}
 const glowImg=(r,g,b,core=.35)=>{const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');const gr=x.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,`rgba(${r},${g},${b},1)`);gr.addColorStop(core,`rgba(${r},${g},${b},.55)`);gr.addColorStop(1,`rgba(${r},${g},${b},0)`);x.fillStyle=gr;x.fillRect(0,0,64,64);return c};
-const FIRE_IMG=glowImg(255,140,40,.25),EMBER_IMG=glowImg(255,220,120,.15),SMOKE_IMG=glowImg(70,68,66,.5),DROP_IMG=glowImg(215,235,255,.3),DUST_IMG=glowImg(150,130,105,.45);
+const FIRE_IMG=glowImg(255,140,40,.25),EMBER_IMG=glowImg(255,220,120,.15),SMOKE_IMG=glowImg(175,170,163,.45),DROP_IMG=glowImg(215,235,255,.3),DUST_IMG=glowImg(150,130,105,.45);
 const tmpV=new C.Cartesian3();
 function psys(o){if(o.emissionRate)o.emissionRate*=PF;return scene.primitives.add(new C.ParticleSystem(Object.assign({image:FIRE_IMG,startColor:C.Color.WHITE,endColor:C.Color.WHITE.withAlpha(0),startScale:1,endScale:2.5,minimumParticleLife:1,maximumParticleLife:2,minimumSpeed:2,maximumSpeed:5,imageSize:new C.Cartesian2(6,6),sizeInMeters:true,emissionRate:20,emitter:new C.ConeEmitter(RAD(25)),show:false},o)))}
 const enuAt=(p,h)=>C.Transforms.eastNorthUpToFixedFrame(cart(p,h));
@@ -383,11 +383,11 @@ EM.beacon=viewer.entities.add({show:false,position:new C.CallbackProperty(()=>C.
 EM.burnR=0;EM.burnHier=null;
 function burnPoly(a){const b=a*.58,sh=a*.32,pts=[];for(let i=0;i<48;i++){const th=i/48*2*Math.PI;const ex=Math.cos(th)*a+sh,ey=Math.sin(th)*b;const e=ex*EM.wind[0]+ey*EM.wind[1],n=ex*EM.wind[1]-ey*EM.wind[0];pts.push(offLL(EM.fire[0],EM.fire[1],e,n))}return pts}
 const burnA=t=>t<ET.fire?0:Math.min(360,18+(Math.min(t,ET.contain)-ET.fire)/60*6.4);
-EM.burn=viewer.entities.add({show:false,polygon:{hierarchy:new C.CallbackProperty(()=>EM.burnHier,false),material:C.Color.fromCssColorString('#2a1a12').withAlpha(.72),classificationType:C.ClassificationType.TERRAIN}});
+EM.burn=viewer.entities.add({show:false,polygon:{hierarchy:new C.CallbackProperty(()=>EM.burnHier,false),material:C.Color.fromCssColorString('#2b2019').withAlpha(.58),classificationType:C.ClassificationType.TERRAIN}});
 EM.burnEdge=viewer.entities.add({show:false,polyline:{positions:new C.CallbackProperty(()=>EM.burnEdgePos||[],false),clampToGround:true,width:5,material:new C.PolylineGlowMaterialProperty({glowPower:.4,color:C.Color.fromCssColorString('#ff7a1a')})}});
 EM.flames=[...Array(16)].map(()=>psys({image:FIRE_IMG,emitter:new C.CircleEmitter(14),emissionRate:28,minimumSpeed:2,maximumSpeed:5.5,minimumParticleLife:.5,maximumParticleLife:1.1,imageSize:new C.Cartesian2(3.5,6),startScale:1.2,endScale:.2,startColor:C.Color.fromCssColorString('#ffd27a').withAlpha(.95),endColor:C.Color.fromCssColorString('#ff3a10').withAlpha(0)}));
 EM.embers=psys({image:EMBER_IMG,emitter:new C.CircleEmitter(30),emissionRate:30,minimumSpeed:6,maximumSpeed:14,minimumParticleLife:2,maximumParticleLife:4,imageSize:new C.Cartesian2(1.6,1.6),startScale:1,endScale:.4,startColor:C.Color.WHITE,endColor:C.Color.fromCssColorString('#ff6a00').withAlpha(0)});
-EM.smoke=[0,1,2].map(i=>psys({image:SMOKE_IMG,emitter:new C.CircleEmitter(25+i*20),emissionRate:7,minimumSpeed:5,maximumSpeed:9,minimumParticleLife:16,maximumParticleLife:26,imageSize:new C.Cartesian2(50,50),startScale:1,endScale:5,startColor:C.Color.fromCssColorString('#6c6863').withAlpha(.62),endColor:C.Color.fromCssColorString('#9d9a95').withAlpha(0)}));
+EM.smoke=[0,1,2].map(i=>psys({image:SMOKE_IMG,emitter:new C.CircleEmitter(25+i*20),emissionRate:7,minimumSpeed:5,maximumSpeed:9,minimumParticleLife:16,maximumParticleLife:26,imageSize:new C.Cartesian2(50,50),startScale:1,endScale:5,startColor:C.Color.fromCssColorString('#d6d1ca').withAlpha(.5),endColor:C.Color.fromCssColorString('#eeece8').withAlpha(0)}));
 EM.windW=worldVec(EM.fire,EM.wind[0]*4.5,EM.wind[1]*4.5,0);
 EM.smoke.forEach(s=>s.updateCallback=(pp,dt)=>{C.Cartesian3.add(pp.velocity,C.Cartesian3.multiplyByScalar(EM.windW,dt*.35,tmpV),pp.velocity)});
 EM.embers.updateCallback=(pp,dt)=>{C.Cartesian3.add(pp.velocity,C.Cartesian3.multiplyByScalar(EM.windW,dt*.5,tmpV),pp.velocity)};
