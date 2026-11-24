@@ -550,6 +550,7 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
 const FW=1920,FH=1080,FPS=30;
@@ -562,7 +563,7 @@ globe.tileCacheSize=3000;globe.preloadSiblings=true;globe.loadingDescendantLimit
 #filmui button{font:700 12px "Noto Sans KR";padding:6px 9px;border-radius:7px;border:1px solid #445;background:#1b2436;color:#fff;cursor:pointer}#filmui .row{display:flex;gap:5px;flex-wrap:wrap}`;document.head.appendChild(st)}
 const fitView=()=>{$('#cz').style.transform=`scale(${Math.min(innerWidth/FW,innerHeight/FH)})`};fitView();addEventListener('resize',fitView);
 viewer.useBrowserRecommendedResolution=false;
-const fixRes=()=>{viewer.resolutionScale=1/(window.devicePixelRatio||1)};fixRes();
+const fixRes=()=>{viewer.resolutionScale=1/(window.devicePixelRatio||1);viewer.resize()};fixRes();setTimeout(fixRes,500);setTimeout(fixRes,3000);
 try{scene.msaaSamples=LITE?1:4}catch(e){}
 const comp=document.createElement('canvas');comp.width=FW;comp.height=FH;const g=comp.getContext('2d');
 const ui=document.createElement('div');ui.id='filmui';document.body.appendChild(ui);
@@ -765,7 +766,8 @@ const F4={name:'스마트팜',file:'주천면_04_스마트팜',dur:70,
 const FILMS=[F1,F2,F3,F4];
 const FR={cur:null,t0:0,rec:null,chunks:[],status:'준비',done:[],t:0};
 function cleanupScene(){camera.lookAtTransform(C.Matrix4.IDENTITY)}
-scene.preRender.addEventListener(()=>{if(!FR.cur)return;FR.t=FR.fixed!=null?FR.fixed:(performance.now()-FR.t0)/1000;try{FR.cur.update(Math.min(FR.t,FR.cur.dur))}catch(e){console.warn('film update',e)}});
+const realNow=performance.now.bind(performance);let VT=null;performance.now=()=>VT!=null?VT:realNow();const JD0=C.JulianDate.now();
+scene.preRender.addEventListener(()=>{if(VT!=null)REALJD=C.JulianDate.addSeconds(JD0,VT/1000,new C.JulianDate());if(!FR.cur)return;FR.t=FR.fixed!=null?FR.fixed:(performance.now()-FR.t0)/1000;if(FR.offline&&FR.lastU===FR.t)return;FR.lastU=FR.t;try{FR.cur.update(Math.min(FR.t,FR.cur.dur))}catch(e){console.warn('film update',e)}});
 scene.postRender.addEventListener(()=>{if(!FR.cur)return;g.drawImage(scene.canvas,0,0,FW,FH);try{FR.cur.overlay(Math.min(FR.t,FR.cur.dur))}catch(e){console.warn('film overlay',e)}
  if(FR.t>=FR.cur.dur+.4){const f=FR.cur;FR.cur=null;if(FR.rec&&FR.rec.state==='recording')FR.rec.stop();else{FR.status=`${f.name} 미리보기 끝`;FR.resolve&&FR.resolve()}}});
 async function waitTiles(ms=20000){const t0=performance.now();while(performance.now()-t0<ms){if(globe.tilesLoaded)return true;await new Promise(r=>setTimeout(r,300))}return false}
@@ -776,12 +778,30 @@ async function play(i,record){const f=FILMS[i];FR.status=`${f.name} 준비 중`;
    FR.rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:18e6});FR.rec.ondataavailable=e=>{if(e.data.size)FR.chunks.push(e.data)};
    FR.rec.onstop=()=>{const blob=new Blob(FR.chunks,{type:mime.split(';')[0]});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.file+(mime.includes('mp4')?'.mp4':'.webm');document.body.appendChild(a);a.click();FR.done.push({file:a.download,size:blob.size});FR.status=`${f.name} 저장: ${a.download} (${(blob.size/1e6).toFixed(1)}MB)`;res()};FR.rec.start(1000)}
   FR.status=`${f.name} ${record?'녹화':'재생'} 중`;FR.t0=performance.now();FR.cur=f})}
+const tick=()=>new Promise(r=>{const ch=new MessageChannel();ch.port1.onmessage=()=>r();ch.port2.postMessage(0)});
+const sleepReal=async ms=>{const t=realNow();while(realNow()-t<ms)await tick()};
+async function pickCodec(){for(const c of['avc1.640028','avc1.4d0028','avc1.42e028']){try{const r=await VideoEncoder.isConfigSupported({codec:c,width:FW,height:FH,bitrate:14e6,framerate:FPS});if(r.supported)return c}catch(e){}}return null}
+async function renderFilm(i,o={}){const f=FILMS[i];const wait=o.wait??6;FR.status=`${f.name} 준비 중`;await prepFilm(f);fixRes();await document.fonts.load(`900 40px ${FONT}`);await document.fonts.load(`700 38px ${FONT}`);
+ const codec=await pickCodec();if(!codec){FR.status='이 브라우저는 H.264 인코딩을 지원하지 않음';return}
+ const N=Math.round((o.dur??f.dur)*FPS);const muxer=new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(),video:{codec:'avc',width:FW,height:FH,frameRate:FPS},fastStart:'in-memory'});
+ let err=null;const enc=new VideoEncoder({output:(c,m)=>muxer.addVideoChunk(c,m),error:e=>{err=e;console.error(e)}});enc.configure({codec,width:FW,height:FH,bitrate:o.bitrate??14e6,framerate:FPS});
+ viewer.useDefaultRenderLoop=false;FR.offline=true;FOL.h=null;const base=realNow();const t0=realNow();
+ try{for(let fr=0;fr<N;fr++){if(FR.abort)break;VT=base+fr*1000/FPS;FR.fixed=fr/FPS;FR.cur=f;FR.lastU=null;viewer.render();
+   if(fr===0){let w=0;while(!globe.tilesLoaded&&w<300){await sleepReal(50);viewer.render();w++}}else{let k=0;while(!globe.tilesLoaded&&k<wait){await sleepReal(35);viewer.render();k++}}
+   const vf=new VideoFrame(comp,{timestamp:Math.round(fr*1e6/FPS),duration:Math.round(1e6/FPS)});enc.encode(vf,{keyFrame:fr%(FPS*2)===0});vf.close();
+   while(enc.encodeQueueSize>4)await tick();if(err)throw err;
+   if(fr%15===0){const el=(realNow()-t0)/1000;FR.status=`${f.name} 렌더 ${fr+1}/${N} · 남은 시간 약 ${Math.round(el/(fr+1)*(N-fr-1)/60)}분`;await tick()}}
+  await enc.flush();muxer.finalize();const blob=new Blob([muxer.target.buffer],{type:'video/mp4'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.file+'.mp4';document.body.appendChild(a);a.click();
+  FR.done.push({file:a.download,size:blob.size,sec:N/FPS,took:Math.round((realNow()-t0)/1000)});FR.status=`${f.name} 저장: ${a.download} (${(blob.size/1e6).toFixed(1)}MB)`;FR.lastBlob=blob}
+ catch(e){FR.status='오류: '+e.message;console.error(e)}
+ finally{VT=null;FR.cur=null;FR.fixed=null;FR.offline=false;viewer.useDefaultRenderLoop=true;camera.lookAtTransform(C.Matrix4.IDENTITY)}}
+async function renderAll(o={}){FR.abort=false;for(let i=0;i<FILMS.length;i++){await renderFilm(i,o);if(FR.abort)break}FR.status='4편 모두 렌더 완료'}
 async function playAll(record,warm=true){for(let i=0;i<FILMS.length;i++){if(warm)await play(i,false);await play(i,record);cleanupScene()}FR.status='모두 끝'}
-ui.innerHTML=`<b>영상 제작 모드 · 1920×1080</b><div class="row">${FILMS.map((f,i)=>`<button data-p="${i}">▶ ${i+1} ${f.name}</button>`).join('')}</div><div class="row">${FILMS.map((f,i)=>`<button data-r="${i}">● 녹화 ${i+1}</button>`).join('')}<button data-all>● 4편 모두 녹화</button></div><div id="fst">준비</div>`;
-ui.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.p)play(+b.dataset.p,false);else if(b.dataset.r)(async()=>{await play(+b.dataset.r,false);await play(+b.dataset.r,true)})();else if(b.hasAttribute('data-all'))playAll(true)};
+ui.innerHTML=`<b>영상 제작 모드 · 1920×1080</b><div class="row">${FILMS.map((f,i)=>`<button data-p="${i}">▶ ${i+1} ${f.name}</button>`).join('')}</div><div class="row">${FILMS.map((f,i)=>`<button data-r="${i}">● 녹화 ${i+1}</button>`).join('')}<button data-all>● 4편 모두 녹화(실시간)</button><button data-off>◆ 4편 고화질 렌더</button></div><div id="fst">준비</div>`;
+ui.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.p)play(+b.dataset.p,false);else if(b.dataset.r)(async()=>{await play(+b.dataset.r,false);await play(+b.dataset.r,true)})();else if(b.hasAttribute('data-all'))playAll(true);else if(b.hasAttribute('data-off'))renderAll()};
 setInterval(()=>{const s=$('#fst');if(s)s.textContent=FR.status+(FR.cur?` · ${FR.t.toFixed(1)}s / ${FR.cur.dur}s`:'')},250);
 addEventListener('resize',()=>setTimeout(fixRes,50));
-window.__film={FILMS,play,playAll,FR,comp,seek:async(i,t)=>{const f=FILMS[i];if(FR.cur!==f)await prepFilm(f);FR.fixed=t;FR.cur=f;FOL.h=null},script:()=>FILMS.map(f=>({file:f.file,name:f.name,dur:f.dur,lines:(f.lines||[]).filter(l=>l[2])}))};
+window.__film={FILMS,play,playAll,renderFilm,renderAll,FR,comp,seek:async(i,t)=>{const f=FILMS[i];if(FR.cur!==f)await prepFilm(f);FR.fixed=t;FR.cur=f;FOL.h=null},script:()=>FILMS.map(f=>({file:f.file,name:f.name,dur:f.dur,lines:(f.lines||[]).filter(l=>l[2])}))};
 }
 
 /* start */
