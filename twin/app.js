@@ -264,8 +264,8 @@ function setQuality(k){const q=QUAL[k]||QUAL.max;const dpr=window.devicePixelRat
  let s=q.ss/dpr*dpr;const px=innerWidth*innerHeight*dpr*dpr;const cap=Math.sqrt(3840*2160*1.3/px);s=Math.min(s,Math.max(1,cap));if(q.ss<1)s=q.ss;
  viewer.resolutionScale=s;globe.maximumScreenSpaceError=q.sse;try{scene.msaaSamples=q.msaa}catch(e){}
  casStage.uniforms.sharp=q.sharp;casStage.enabled=true;
- try{localStorage.setItem('jc_quality',k)}catch(e){}const sel=$('#q');if(sel)sel.value=k}
-let QK='max';try{QK=localStorage.getItem('jc_quality')||'max'}catch(e){}
+ try{localStorage.setItem('jc_quality2',k)}catch(e){}const sel=$('#q');if(sel)sel.value=k}
+let QK='bal';try{QK=localStorage.getItem('jc_quality2')||'bal'}catch(e){}
 setQuality(QK);$('#q').onchange=e=>setQuality(e.target.value);addEventListener('resize',()=>setQuality($('#q').value));
 
 /* ================= rotation ================= */
