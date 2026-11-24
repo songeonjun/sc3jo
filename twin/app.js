@@ -545,6 +545,245 @@ addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea'))retu
  else if(PRES.on&&(e.key==='ArrowLeft'||e.key==='PageUp')){PRES.i=Math.max(0,PRES.i-1);presStep()}},true);
 addEventListener('help',e=>e.preventDefault());
 
+
+
+
+
+
+/* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
+if(window.FILM){
+const FW=1920,FH=1080,FPS=30;
+DIR.on=false;dirStop();
+globe.tileCacheSize=3000;globe.preloadSiblings=true;globe.loadingDescendantLimit=60;
+{const st=document.createElement('style');st.textContent=`html,body{overflow:hidden;background:#000}
+#cz{position:fixed!important;left:0;top:0;width:${FW}px!important;height:${FH}px!important;transform-origin:0 0}
+#top,#panel,#bar,#legend,#toast,#hint,#pres,#cap,#lbT,#lbB,#tip,#keybox,#rain,#vig{display:none!important}
+#filmui{position:fixed;left:10px;top:10px;z-index:20;background:rgba(6,10,18,.85);color:#fff;font:600 13px "Noto Sans KR";padding:10px 12px;border-radius:10px;display:grid;gap:6px}
+#filmui button{font:700 12px "Noto Sans KR";padding:6px 9px;border-radius:7px;border:1px solid #445;background:#1b2436;color:#fff;cursor:pointer}#filmui .row{display:flex;gap:5px;flex-wrap:wrap}`;document.head.appendChild(st)}
+const fitView=()=>{$('#cz').style.transform=`scale(${Math.min(innerWidth/FW,innerHeight/FH)})`};fitView();addEventListener('resize',fitView);
+viewer.useBrowserRecommendedResolution=false;
+const fixRes=()=>{viewer.resolutionScale=1/(window.devicePixelRatio||1)};fixRes();
+try{scene.msaaSamples=LITE?1:4}catch(e){}
+const comp=document.createElement('canvas');comp.width=FW;comp.height=FH;const g=comp.getContext('2d');
+const ui=document.createElement('div');ui.id='filmui';document.body.appendChild(ui);
+
+/* ---------- helpers ---------- */
+const sm=u=>{u=clamp(u,0,1);return u*u*(3-2*u)};
+const ease=u=>{u=clamp(u,0,1);return u<.5?4*u*u*u:1-(-2*u+2)**3/2};
+function camAt(p,head,pitch,range){camera.lookAt(C.Cartesian3.fromDegrees(p[0],p[1],p[2]),new C.HeadingPitchRange(RAD(head),RAD(pitch),range))}
+async function prepKeys(keys){const need=keys.filter(k=>k.p&&k.p.length===2);if(need.length){const hs=await gh(need.map(k=>k.p));need.forEach((k,i)=>k.p=[k.p[0],k.p[1],hs[i]+(k.up||0)])}return keys}
+function keyCam(keys,t){let i=0;while(i<keys.length-1&&keys[i+1].t<=t)i++;const a=keys[i],b=keys[Math.min(i+1,keys.length-1)];const u=a===b?0:ease((t-a.t)/(b.t-a.t));
+ const p=[a.p[0]+(b.p[0]-a.p[0])*u,a.p[1]+(b.p[1]-a.p[1])*u,a.p[2]+(b.p[2]-a.p[2])*u];let dh=b.head-a.head;while(dh>180)dh-=360;while(dh<-180)dh+=360;
+ camAt(p,a.head+dh*u,a.pitch+(b.pitch-a.pitch)*u,Math.exp(Math.log(a.range)+(Math.log(b.range)-Math.log(a.range))*u))}
+const FOL={h:null};
+function followCam(r,pitch,range,headOff=0,k=.06){if(!r)return;if(FOL.h==null)FOL.h=r.head;FOL.h=lerpAng(FOL.h,r.head,k);camAt([r.p[0],r.p[1],r.p[2]],DEG(FOL.h)+headOff,pitch,range)}
+const mono=pts=>{for(let i=1;i<pts.length;i++)pts[i][1]=Math.max(pts[i][1],pts[i-1][1]+30);return pts};
+const pw=(pts,t)=>{if(t<=pts[0][0])return pts[0][1];for(let i=1;i<pts.length;i++)if(t<=pts[i][0]){const[a,va]=pts[i-1],[b,vb]=pts[i];return va+(vb-va)*(t-a)/(b-a)}return pts[pts.length-1][1]};
+const alpha=(t,a,b,f=.6)=>clamp(Math.min((t-a)/f,(b-t)/f),0,1);
+/* ---------- 2D overlay drawing ---------- */
+const FONT='"Noto Sans KR"';
+function rr(x,y,w,h,r){g.beginPath();g.roundRect(x,y,w,h,r)}
+function txt(s,x,y,size,weight=700,col='#fff',align='left'){g.font=`${weight} ${size}px ${FONT}`;g.fillStyle=col;g.textAlign=align;g.fillText(s,x,y)}
+function wrap(s,maxW,size,weight=700){g.font=`${weight} ${size}px ${FONT}`;const out=[];let line='';for(const ch of s){const t2=line+ch;if(g.measureText(t2).width>maxW&&line){out.push(line);line=ch}else line=t2}if(line)out.push(line);for(let i=1;i<out.length;i++)while(/^[.,!?·)」]/.test(out[i])){out[i-1]+=out[i][0];out[i]=out[i].slice(1)}return out.filter(x=>x)}
+function brand(no,name){g.save();g.globalAlpha=.92;rr(36,32,560,58,14);g.fillStyle='rgba(6,10,18,.62)';g.fill();txt(no,58,72,26,900,'#3ee6c1');txt(name,108,72,24,800);txt('강원 영월군 주천면 · 스마트시티 3조',590-14,72,15,500,'#9aabc4','right');g.restore()}
+function titleCard(t,a,b,no,title,sub){const al=alpha(t,a,b,.8);if(al<=0)return;g.save();g.globalAlpha=al;const gr=g.createLinearGradient(0,0,FW*.7,0);gr.addColorStop(0,'rgba(4,8,16,.88)');gr.addColorStop(1,'rgba(4,8,16,0)');g.fillStyle=gr;g.fillRect(0,0,FW,FH);
+ const dy=(1-sm((t-a)/1.2))*30;txt(no,120,430+dy,40,900,'#3ee6c1');txt(title,120,520+dy,88,900);txt(sub,122,590+dy,34,500,'#cdd8e8');g.fillStyle='#3ee6c1';g.fillRect(122,630+dy,120*sm((t-a)/1.4),5);g.restore()}
+function sub(t,lines){const L=lines.find(l=>t>=l[0]&&t<=l[1]);if(!L)return;const al=alpha(t,L[0],L[1],.35);const rows=wrap(L[2],1560,38,700);g.save();g.globalAlpha=al;const h=rows.length*54+28,w=Math.min(1640,Math.max(...rows.map(r=>(g.font=`700 38px ${FONT}`,g.measureText(r).width)))+64);
+ rr((FW-w)/2,FH-90-h,w,h,16);g.fillStyle='rgba(0,0,0,.62)';g.fill();rows.forEach((r,i)=>txt(r,FW/2,FH-90-h+56+i*54,38,700,'#fff','center'));g.restore()}
+function lower(t,a,b,head,body,col='#3ee6c1'){const al=alpha(t,a,b,.5);if(al<=0)return;g.save();g.globalAlpha=al;const dx=(1-sm((t-a)/.6))*-40;const rows=wrap(body,620,24,500);const h=74+rows.length*36;
+ rr(60+dx,FH-330-h,700,h,16);g.fillStyle='rgba(6,10,18,.78)';g.fill();g.fillStyle=col;g.fillRect(60+dx,FH-330-h,8,h);txt(head,92+dx,FH-330-h+48,30,800,col);rows.forEach((r,i)=>txt(r,92+dx,FH-330-h+88+i*36,24,500,'#e6edf7'));g.restore()}
+function alertCard(t,a,b,lv,head,body){const al=alpha(t,a,b,.4);if(al<=0)return;const col=lv==='alert'?'#ff4d5e':lv==='warn'?'#ffc145':'#3ee6c1';g.save();g.globalAlpha=al;const dx=(1-sm((t-a)/.5))*80;
+ rr(FW-640+dx,200,580,128,16);g.fillStyle='rgba(6,10,18,.84)';g.fill();g.lineWidth=3;g.strokeStyle=col;g.stroke();g.beginPath();g.arc(FW-600+dx,250,12+4*Math.sin(t*8),0,7);g.fillStyle=col;g.fill();
+ txt(head,FW-570+dx,262,30,900,col);txt(body,FW-614+dx,306,22,500,'#e6edf7');g.restore()}
+function kpis(t,a,b,items){const al=alpha(t,a,b,.5);if(al<=0)return;g.save();g.globalAlpha=al;items.forEach(([v,l,col],i)=>{const x=FW-60-i*300-280,y=40+118;rr(x,y-118,280,118,16);g.fillStyle='rgba(6,10,18,.76)';g.fill();txt(v,x+24,y-60,44,900,col||'#fff');txt(l,x+24,y-24,19,500,'#9aabc4')});g.restore()}
+function endCard(t,a,b,big,small){const al=alpha(t,a,b,.8);if(al<=0)return;g.save();g.globalAlpha=al;g.fillStyle='rgba(4,8,16,.72)';g.fillRect(0,0,FW,FH);txt(big,FW/2,FH/2-10,72,900,'#fff','center');txt(small,FW/2,FH/2+60,32,500,'#9fe9d6','center');g.restore()}
+const rainDrops=[...Array(900)].map(()=>[Math.random(),Math.random(),.6+Math.random()*.8]);
+function rain(t,v){if(v<2)return;const n=Math.round(clamp(v/70,.08,1)*rainDrops.length);g.save();g.strokeStyle=`rgba(210,225,240,${clamp(.18+v/200,.18,.5)})`;g.lineWidth=1.6;g.beginPath();for(let i=0;i<n;i++){const d=rainDrops[i];const y=((d[1]+t*1.6*d[2])%1)*FH,x=d[0]*FW;g.moveTo(x,y);g.lineTo(x-7*d[2],y+38*d[2])}g.stroke();g.restore()}
+function vignette(){const gr=g.createRadialGradient(FW/2,FH/2,FH*.45,FW/2,FH/2,FH*.95);gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(1,'rgba(0,0,0,.38)');g.fillStyle=gr;g.fillRect(0,0,FW,FH)}
+
+const SUN=scene.light,baseL=viewer.imageryLayers.get(0);let NIGHT=false;
+function nightMode(on){NIGHT=on;if(on){scene.light=new C.DirectionalLight({direction:C.Cartesian3.normalize(C.Cartesian3.add(C.Cartesian3.negate(UPV,new C.Cartesian3()),new C.Cartesian3(.15,.1,0),new C.Cartesian3()),new C.Cartesian3()),color:C.Color.fromCssColorString('#9fb2ff'),intensity:.22});if(baseL){baseL.brightness=.2;baseL.saturation=.45;baseL.contrast=1.15}viewer.shadowMap.enabled=false}
+ else{scene.light=SUN;if(baseL){baseL.brightness=1.05;baseL.saturation=1.05;baseL.contrast=1.08}viewer.shadowMap.enabled=!LITE}
+ if(wallPrim.ready){const dw=C.ColorGeometryInstanceAttribute.toValue(C.Color.fromCssColorString('#3b3f48')),dr=C.ColorGeometryInstanceAttribute.toValue(C.Color.fromCssColorString('#2c3038'));B.forEach((b,i)=>{const a=wallPrim.getGeometryInstanceAttributes('b'+i);if(a)a.color=on?dw:C.ColorGeometryInstanceAttribute.toValue(b.wc);const r=roofPrim.ready&&roofPrim.getGeometryInstanceAttributes('r'+i);if(r)r.color=on?dr:C.ColorGeometryInstanceAttribute.toValue(b.house?b.rc:C.Color.fromCssColorString('#cfcac0'));bState[i]=0})}}
+function nightSky(){if(!NIGHT)return;scene.skyAtmosphere.brightnessShift=-.92;scene.skyAtmosphere.saturationShift=-.3;globe.atmosphereBrightnessShift=-.7;scene.fog.density=1.2e-4;scene.fog.minimumBrightness=.01}
+function dayMode(){nightMode(false);hallEnts.forEach(e=>e.show=true);for(const id in facEnts)facEnts[id].show=true}
+/* ---------- FILM 1: DRT ---------- */
+const nearStop=b=>{const p=P[b];let best=null,bd=1e9;T.stops.forEach(s=>{const d=mdist([p.lon,p.lat],[s.lon,s.lat]);if(d<bd){bd=d;best=s}});return best};
+function drtCompare(){const rows=BIDS.map(b=>{const calls=M.calls.filter(c=>c.b===b&&c.dir==='in'&&c.wait!=null);const w=calls.length?calls.reduce((s,c)=>s+c.wait,0)/calls.length:900;const ride=calls.length?calls.reduce((s,c)=>s+(c.ride||RT[b+'-T0'].t),0)/calls.length:RT[b+'-T0'].t;
+ const walk=T.bInfo[b].stopDist/.8,old=walk+3600+RT[b+'-T0'].t*1.25,nw=w+ride;return{b,name:short(P[b].name).replace(' ',''),old:old/60,nw:nw/60,walk:walk/60}});const o=rows.reduce((s,r)=>s+r.old,0)/rows.length,n=rows.reduce((s,r)=>s+r.nw,0)/rows.length;return{rows,old:o,nw:n,pct:Math.round((1-n/o)*100)}}
+const F1={name:'DRT',file:'주천면_01_DRT',dur:74,
+ enter(){dayMode();setScene('drt',0)},
+ async setup(){S.drt={veh:1,rate:.15};M=makeDRT(S.drt);buildVehEnts(M);this.cmp=drtCompare();const b='B5';this.b=b;const st=nearStop(b);this.stop=st;
+  const call=M.calls.filter(c=>c.b===b&&c.dir==='in'&&c.pick!=null&&c.t>H(8.7)).sort((x,y)=>x.t-y.t)[0]||M.calls.find(c=>c.dir==='in'&&c.pick!=null);this.call=call;
+  const v=vehEnts.find(e=>e.v.z===ZONE_OF[call.b]);this.ve=v;
+  // arrival at T0 after pick
+  let arr=call.pick+1200;for(const s2 of v.v.segs)if(s2.r&&s2.ts>=call.pick&&s2.r.c[s2.r.c.length-1]&&mdist(s2.r.c[s2.r.c.length-1],T0P)<60){arr=s2.te;break}this.arr=arr;
+  const hp=[P[b].lon,P[b].lat],sp=[st.lon,st.lat];const path=densify([hp,sp],10);const hs=await gh(path);this.walk=path.map((p,i)=>[p[0],p[1],hs[i]+1.2]);
+  this.walkLine=viewer.entities.add({polyline:{positions:this.walk.map(p=>cart(p,p[2]+.5)),width:6,arcType:C.ArcType.NONE,material:new C.PolylineDashMaterialProperty({color:C.Color.fromCssColorString('#ffd36a'),dashLength:18})},show:false});
+  this.stopEnt=viewer.entities.add({show:false,position:cart(sp,hs[hs.length-1]+1),billboard:{image:ringImg('#ffd36a',8),width:46,height:46,disableDepthTestDistance:Number.POSITIVE_INFINITY},label:{...LBL,text:'가까운 버스정류장 · '+st.name,fillColor:C.Color.fromCssColorString('#ffd36a'),pixelOffset:new C.Cartesian2(0,-28),heightReference:C.HeightReference.NONE}});
+  const person=document.createElement('canvas');person.width=person.height=64;{const x=person.getContext('2d');x.fillStyle='#fff';x.beginPath();x.arc(32,14,9,0,7);x.fill();x.fillRect(24,25,16,24);x.fillRect(25,47,6,15);x.fillRect(33,47,6,15);x.strokeStyle='#ffd36a';x.lineWidth=3;x.beginPath();x.moveTo(44,28);x.lineTo(50,62);x.stroke()}
+  this.ped=viewer.entities.add({show:false,position:new C.CallbackProperty(()=>{const u=clamp((this.tt-8)/12,0,1)*.45;const i=Math.min(this.walk.length-2,Math.floor(u*(this.walk.length-1)));const q=this.walk[i];return cart(q,q[2])},false),billboard:{image:person,width:30,height:30,verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Number.POSITIVE_INFINITY}});
+  const g0=(await gh([hp]))[0];this.hp=[hp[0],hp[1],g0];
+  this.keysA=await prepKeys([{t:0,p:[128.252,37.256],head:-25,pitch:-34,range:9000},{t:7,p:[128.248,37.258],head:-5,pitch:-30,range:5200},
+   {t:8.5,p:[(hp[0]+sp[0])/2,(hp[1]+sp[1])/2],head:headOf(hp,sp)*57.3+90,pitch:-32,range:900},{t:20,p:[(hp[0]+sp[0])/2,(hp[1]+sp[1])/2],head:headOf(hp,sp)*57.3+60,pitch:-26,range:650},
+   {t:22,p:hp,head:200,pitch:-22,range:420},{t:28,p:hp,head:150,pitch:-18,range:300}]);
+  this.keysC=await prepKeys([{t:46,p:T0P,head:210,pitch:-24,range:700},{t:50,p:T0P,head:180,pitch:-26,range:800},{t:51,p:[128.25,37.257],head:-20,pitch:-36,range:9500},{t:66,p:[128.25,37.257],head:25,pitch:-36,range:9000},{t:74,p:[128.25,37.257],head:40,pitch:-40,range:11000}]);
+  const c=this.cmp;this.lines=[[1,6.5,''],[7,12.4,'신일2리 어르신이 버스를 타려면, 가장 가까운 정류장까지 약 1km를 걸어야 합니다.'],[12.6,20.5,'걸어서 20분. 버스를 놓치면 다음 차가 올 때까지 한참을 기다려야 하죠.'],
+   [22,28.6,'DRT는 마을회관 호출벨 하나로 시작합니다. 벨을 누르면 권역 차량이 배정됩니다.'],[29,37,'승합차는 실제 도로의 최단 경로로 회관에 들러 어르신을 태우고,'],[37.4,45,'같은 방향의 다른 마을 호출까지 묶어서 T0 대합실로 향합니다.'],[46,50.5,'대합실 도착. 여기서 시내·시외버스로 갈아탑니다.'],
+   [51.5,58,'서부·남부 다섯 마을의 대합실까지 이동 시간을 비교해 보면,'],[58.4,65.5,`기존 평균 ${Math.round(c.old)}분에서 DRT ${Math.round(c.nw)}분, 약 ${c.pct}% 줄어듭니다.`],[66.5,73.5,'차량 두 대로 다섯 마을을 맡는, 작은 마을에 맞는 교통입니다.']]},
+ simT(t){if(!this.mp)this.mp=mono([[22,this.call.t-120],[28,this.call.t+60],[29,this.call.pick-420],[45,this.arr]]);return t<22?H(9):t<46?pw(this.mp,t):this.mp[3][1]+(t-46)*60},
+ update(t){this.tt=t;S.t=this.simT(t);frame(true);this.walkLine.show=t>7.5&&t<21.5;this.stopEnt.show=t>7.5&&t<21.5;this.ped.show=t>8&&t<21.5;
+  if(t<29)keyCam(this.keysA,t);else if(t<46){const a=vehAt(this.ve.v,S.t);if(a.mv){this.lh=headOf(a.p,a.q);this.lp=a.p}if(this.lp)followCam({p:this.lp,head:this.lh},-19,t<31?320:200,0,.05)}else keyCam(this.keysC,t)},
+ overlay(t){brand('01','DRT 수요응답형 교통');titleCard(t,0,6.6,'01','부르면 오는 마을버스','DRT · 이동 시간과 효율');
+  lower(t,8.5,21.2,'지금: 걸어서 정류장까지',`신일2리 회관 → ${this.stop.name} ${Math.round(T.bInfo.B5.stopDist)}m · 어르신 걸음(0.8m/s) 약 ${Math.round(T.bInfo.B5.stopDist/.8/60)}분 · 배차 간격 2시간 가정`,'#ffd36a');
+  const c=this.call;if(t>=22&&t<46){const st=S.t;lower(t,22.3,45.6,'DRT 호출 → 탑승 → 대합실',`호출 ${hhmm(c.t)}${st>=c.pick?` · 탑승 ${hhmm(c.pick)} (대기 ${Math.round(c.wait/60)}분)`:''}${st>=this.arr?` · 도착 ${hhmm(this.arr)}`:''}`,'#ff4fa3');
+   const s=drtStats(M,st);kpis(t,23,45.6,[[`${Math.round(s.km)}km`,'누적 운행 거리'],[`${(s.wait/60).toFixed(1)}분`,'평균 호출 대기','#3ee6c1'],[hhmm(st),'시각']])}
+  if(t>=51)this.chart(t);endCard(t,66,74.5,`평균 ${Math.round(this.cmp.old)}분 → ${Math.round(this.cmp.nw)}분`,`이동 시간 약 ${this.cmp.pct}% 단축 · 권역당 차량 1대로 5개 마을`);sub(t,this.lines);vignette()},
+ chart(t){const al=alpha(t,51,66.2,.6);if(al<=0)return;const c=this.cmp,x0=1000,y0=280,W=840,rowH=118;g.save();g.globalAlpha=al;rr(x0-30,y0-70,W+60,c.rows.length*rowH+150,20);g.fillStyle='rgba(6,10,18,.84)';g.fill();
+  txt('대합실까지 걸리는 시간 (분)',x0,y0-20,28,800);txt('기존 = 정류장 도보 + 평균 대기 60분(가정) + 버스 · DRT = 시뮬레이션 대기 + 탑승',x0,y0+12,16,500,'#9aabc4');const mx=Math.max(...c.rows.map(r=>r.old))*1.05;
+  c.rows.forEach((r,i)=>{const y=y0+40+i*rowH,u=sm((t-52-i*.5)/1.6);txt(`${r.b} ${r.name}`,x0,y+24,22,700,'#e6edf7');const bw=W-150;g.fillStyle='rgba(255,211,106,.85)';g.fillRect(x0,y+36,bw*r.old/mx*u,26);g.fillStyle='#ff4fa3';g.fillRect(x0,y+68,bw*r.nw/mx*u,26);
+   txt(`${Math.round(r.old*u)}분`,x0+bw*r.old/mx*u+10,y+57,20,800,'#ffd36a');txt(`${Math.round(r.nw*u)}분`,x0+bw*r.nw/mx*u+10,y+89,20,800,'#ff8ac4')});
+  txt('■ 기존',x0,y0+40+c.rows.length*rowH+18,20,700,'#ffd36a');txt('■ DRT',x0+110,y0+40+c.rows.length*rowH+18,20,700,'#ff8ac4');g.restore()}};
+
+/* ---------- FILM 2: 침수 센서 ---------- */
+const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
+ enter(){dayMode();S.flood.sc='heavy';setScene('flood',0)},
+ async setup(){S.flood.sc='heavy';FS=floodSeries('heavy');aff.clear();
+  const Lat=t=>FS[clamp(Math.floor(t/600),0,FS.length-1)].L;this.Lat=Lat;this.depth=t=>Math.min(260,clamp((t-H(9))/H(5),0,1)*25+Lat(t+4200)/5.3*240);
+  const cross=v=>{for(let s=H(8);s<H(24);s+=60)if(this.depth(s)>=v)return s;return H(20)};this.c60=cross(60);this.c100=cross(100);this.c150=cross(150);
+  let tb=H(20);for(let s=H(8);s<H(24);s+=60){const th=thrOf(Lat(s));if(th<=5&&affected(th).n>0){tb=s;break}}this.tb=tb;
+  let pk=0;FS.forEach((x,i)=>{if(x.L>FS[pk].L)pk=i});this.peak=pk*600;
+  // sensors: centroids of deepest flood polygons nearest T0
+  const cs=(T.flood['5']||[]).concat(T.flood['4']||[]).map(pl=>centroid(pl[0])).sort((a,b)=>mdist(a,T0P)-mdist(b,T0P));const pick=[];for(const c of cs){if(pick.every(q=>mdist(q,c)>250))pick.push(c);if(pick.length===3)break}
+  const hs=await gh(pick);this.sens=pick.map((p,i)=>({id:`WL-0${i+1}`,p:[p[0],p[1],hs[i]]}));
+  this.sens.forEach((s,i)=>{s.pole=viewer.entities.add({position:cart(s.p,s.p[2]+3),cylinder:{length:6,topRadius:.2,bottomRadius:.26,material:C.Color.fromCssColorString('#dfe5ee')}});
+   s.box=viewer.entities.add({position:cart(s.p,s.p[2]+6.2),box:{dimensions:new C.Cartesian3(1,.6,.7),material:C.Color.fromCssColorString('#4db5ff')}});
+   s.card=viewer.entities.add({position:cart(s.p,s.p[2]+16),billboard:{image:cardImg(s.id,[['수위','0cm']],'#4db5ff'),scale:.62,verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Number.POSITIVE_INFINITY}});
+   s.ring=viewer.entities.add({position:cart(s.p,s.p[2]+.5),billboard:{image:ringImg('#ffffff',7),width:60,height:60,disableDepthTestDistance:Number.POSITIVE_INFINITY}})});
+  const T0p=[128.2715,37.2712];const s0=this.sens[0].p;
+  this.keys=await prepKeys([{t:0,p:[128.268,37.268],head:200,pitch:-30,range:4200},{t:7,p:[128.270,37.269],head:215,pitch:-24,range:2400},{t:14,p:[s0[0],s0[1]],head:250,pitch:-18,range:700},{t:20.5,p:[s0[0],s0[1]],head:225,pitch:-15,range:330},
+   {t:27,p:[s0[0],s0[1]],head:200,pitch:-14,range:290},{t:34,p:[s0[0],s0[1]],head:170,pitch:-16,range:420},{t:42,p:T0p,head:190,pitch:-16,range:700},{t:50,p:T0p,head:150,pitch:-20,range:900},{t:58,p:T0p,head:100,pitch:-26,range:1500},{t:70,p:T0p,head:60,pitch:-32,range:2600}]);
+  const gold=Math.round((this.tb-this.c60)/60);this.gold=gold;
+  this.lines=[[1,6.5,''],[7,13.2,'집중호우가 쏟아지는 날. 주천강 옆 저지대에 수위 센서 세 곳이 설치되어 있습니다.'],[13.5,20.3,'센서는 1분마다 물 높이를 재서 관제센터로 보냅니다.'],[21,27,'수위 60cm, 주의 단계. 관제센터에 경보가 뜹니다.'],
+   [27.5,34,'100cm, 경계 단계. 주민에게 대피 문자와 마을 방송이 자동으로 나갑니다.'],[34.5,41,'150cm, 심각 단계. 강변 도로가 통제됩니다.'],[42,49.5,'물은 범람지도의 저지대부터 차오르고, 붉게 변한 건물이 잠기는 곳입니다.'],
+   [50.5,58,`첫 경보부터 건물 침수까지 약 ${gold}분. 대피할 시간을 벌 수 있습니다.`],[59,68,'센서가 먼저 알면, 사람은 미리 움직일 수 있습니다.']]},
+ simT(t){if(!this.mp)this.mp=mono([[0,H(9)],[7,H(10)],[20.5,this.c60-900],[21.5,this.c60],[28,this.c100],[35,this.c150],[43,this.tb],[58,this.peak],[70,this.peak+3600]]);return pw(this.mp,t)},
+ lvl(d){return d>=150?['심각','#ff4d5e']:d>=100?['경계','#ff8a3d']:d>=60?['주의','#ffc145']:d>=30?['관심','#7fd3ff']:['정상','#3ee6c1']},
+ update(t){S.t=this.simT(t);frame(true);keyCam(this.keys,t);const pu=(performance.now()%1300)/1300;
+  this.sens.forEach((s,i)=>{const d=Math.round(this.depth(S.t-i*420));const [lv,col]=this.lvl(d);const key=d+lv;if(s.k!==key){s.k=key;s.card.billboard.image=cardImg(`${s.id} 수위 센서`,[['수위',d+'cm',col],['단계',lv,col]],col);s.box.box.material=C.Color.fromCssColorString(col)}
+   s.ring.billboard.show=d>=60;s.ring.billboard.width=s.ring.billboard.height=40+pu*90;s.ring.billboard.color=C.Color.fromCssColorString(col).withAlpha(1-pu)})},
+ overlay(t){brand('02','침수 센서');titleCard(t,0,6.6,'02','물이 차기 전에 먼저 알린다','하천 수위 센서 · 자동 경보');const x=FS[clamp(Math.floor(S.t/600),0,FS.length-1)];rain(t,x.rain);
+  const d=Math.round(this.depth(S.t));const [lv,col]=this.lvl(d);const th=thrOf(this.Lat(S.t)),A=affected(th);
+  if(t>7)kpis(t,7.2,66,[[`${A.n}동`,'잠긴 건물',A.n?'#ff6b7a':null],[`${d}cm`,`WL-01 수위 · ${lv}`,col],[`${Math.round(x.rain)}mm`,'시간당 강우','#7fd3ff'],[hhmm(S.t),'시각']]);
+  alertCard(t,21.5,27.4,'warn','주의 · 60cm','WL-01 → 통합관제센터 경보');alertCard(t,28,34.4,'alert','경계 · 100cm','대피 문자 발송 · 마을 방송 자동 송출');alertCard(t,35,41.4,'alert','심각 · 150cm','강변 도로 통제 · 대피소 개방');
+  lower(t,43,57.6,'첫 경보 → 건물 침수',`${hhmm(this.c60)} 주의 경보 → ${hhmm(this.tb)} 첫 건물 침수 · 대피 가능 시간 약 ${this.gold}분`,'#4db5ff');
+  endCard(t,62,70.5,`대피 시간 약 ${this.gold}분 확보`,'수위 센서 3곳 · 관심 30 · 주의 60 · 경계 100 · 심각 150cm');sub(t,this.lines);vignette()}};
+
+/* ---------- FILM 3: 가로등 · CCTV ---------- */
+const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
+ enter(){setScene('intro',0);S.scene='night';hallEnts.forEach(e=>e.show=false);for(const id in facEnts)facEnts[id].show=id==='T0';nightMode(true)},
+ async setup(){
+  // lights along roads near T0
+  const pts=[];T.roads.forEach(r=>{const c=densify(r.c,34);c.forEach((p,i)=>{if(mdist(p,T0P)<760&&i%1===0){const q=c[Math.min(c.length-1,i+1)],o=c[Math.max(0,i-1)];const h=headOf(o,q);const side=(i%2?1:-1)*6;pts.push({p:offLL(p[0],p[1],Math.cos(h)*side,-Math.sin(h)*side),w:r.w})}})});
+  const L=[];pts.forEach(q=>{if(L.every(o=>mdist(o.p,q.p)>24))L.push(q)});const lights=L.slice(0,LITE?160:340);const hs=await gh(lights.map(l=>l.p));lights.forEach((l,i)=>l.g=hs[i]);this.lights=lights;
+  const glow=glowImg(255,214,150,.18),pool=glowImg(255,190,110,.05);
+  lights.forEach((l,i)=>{l.b=.35;l.ent=viewer.entities.add({position:cart(l.p,l.g+7),billboard:{image:glow,width:16,height:16,sizeInMeters:true,color:new C.CallbackProperty(()=>new C.Color(1,1,1,Math.min(1,l.b*1.1)),false),disableDepthTestDistance:1500},point:{pixelSize:new C.CallbackProperty(()=>2+4*l.b,false),color:new C.CallbackProperty(()=>new C.Color(1,.93,.78,Math.min(1,.4+l.b)),false),disableDepthTestDistance:1500}});
+   l.pole=viewer.entities.add({position:cart(l.p,l.g+3.5),cylinder:{length:7,topRadius:.08,bottomRadius:.1,material:C.Color.fromCssColorString('#3a414c')}});
+   if(i%2===0)l.pool=viewer.entities.add({position:C.Cartesian3.fromDegrees(l.p[0],l.p[1]),ellipse:{semiMajorAxis:15,semiMinorAxis:15,material:new C.ImageMaterialProperty({image:pool,transparent:true,color:new C.Color(1,1,1,.95)}),classificationType:C.ClassificationType.TERRAIN}})});
+  // CCTV
+  const cams=[];lights.filter(l=>l.w>=6).concat(lights).forEach(l=>{if(cams.length<8&&mdist(l.p,T0P)<620&&cams.every(c=>mdist(c.p,l.p)>200))cams.push({p:l.p,g:l.g})});this.cams=cams;
+  const camIcon=document.createElement('canvas');camIcon.width=camIcon.height=64;{const x=camIcon.getContext('2d');x.fillStyle='#0b1220';x.beginPath();x.arc(32,32,26,0,7);x.fill();x.strokeStyle='#7fd3ff';x.lineWidth=4;x.stroke();x.fillStyle='#7fd3ff';x.fillRect(16,24,24,16);x.beginPath();x.moveTo(40,28);x.lineTo(50,22);x.lineTo(50,42);x.lineTo(40,36);x.fill()}
+  cams.forEach((c,i)=>{c.id=`CAM-0${i+1}`;c.base=(i*73)%360;c.h=c.base;c.hot=0;c.icon=viewer.entities.add({position:cart(c.p,c.g+8.5),billboard:{image:camIcon,width:26,height:26,disableDepthTestDistance:Number.POSITIVE_INFINITY},label:{...LBL,heightReference:C.HeightReference.NONE,text:c.id,font:'700 12px "Noto Sans KR"',fillColor:C.Color.fromCssColorString('#a9e2ff'),pixelOffset:new C.Cartesian2(0,-20)}});
+   c.cone=viewer.entities.add({polygon:{hierarchy:new C.CallbackProperty(()=>{const a=RAD(c.h),hw=RAD(26),R=78;const q=[c.p,offLL(c.p[0],c.p[1],Math.sin(a-hw)*R,Math.cos(a-hw)*R),offLL(c.p[0],c.p[1],Math.sin(a)*R*1.05,Math.cos(a)*R*1.05),offLL(c.p[0],c.p[1],Math.sin(a+hw)*R,Math.cos(a+hw)*R)];return new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray(q.flat()))},false),height:c.g+1.2,material:new C.ColorMaterialProperty(new C.CallbackProperty(()=>c.hot?C.Color.fromCssColorString('#ff8a3d').withAlpha(.38):C.Color.fromCssColorString('#4db5ff').withAlpha(.22),false))}})});
+  // pedestrian path: road nearest cam[1..]
+  let bestR=null,bd=-1;T.roads.forEach(r=>{const L2=r.c.reduce((s,p,i)=>i?s+mdist(r.c[i-1],p):0,0);if(L2<350||L2>1600)return;const dd=densify(r.c,40);const n=dd.filter(p=>lights.some(l=>mdist(l.p,p)<30)).length/dd.length;const nc=cams.filter(c=>dd.some(p=>mdist(c.p,p)<90)).length;const sc=n+nc*.3;if(sc>bd){bd=sc;bestR=r}});
+  const pr=bestR?await mkRoute(bestR.c,600,.5):subRoute(RT['B8-T0'],.7,1);this.pr=pr;
+  const person=document.createElement('canvas');person.width=person.height=64;{const x=person.getContext('2d');x.fillStyle='#fff';x.beginPath();x.arc(32,13,9,0,7);x.fill();x.fillRect(24,24,16,24);x.fillRect(25,46,6,16);x.fillRect(33,46,6,16)}
+  this.ped=viewer.entities.add({show:false,position:new C.CallbackProperty(()=>cart(this.pp||T0P,(this.pp&&this.pp[2])||0),false),billboard:{image:person,width:30,height:30,verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Number.POSITIVE_INFINITY},label:{...LBL,heightReference:C.HeightReference.NONE,text:'배회 어르신 (가상)',font:'700 13px "Noto Sans KR"',fillColor:C.Color.fromCssColorString('#ffb070'),pixelOffset:new C.Cartesian2(0,-36)}});
+  this.pedRing=viewer.entities.add({show:false,position:new C.CallbackProperty(()=>cart(this.pp||T0P,((this.pp&&this.pp[2])||0)+.5),false),billboard:{image:ringImg('#ff8a3d',7),width:50,height:50,disableDepthTestDistance:Number.POSITIVE_INFINITY}});
+  // van passing (route into T0)
+  const vr=RT['B8-T0'];this.vr=subRoute(vr,.55,1);this.van=viewer.entities.add({position:new C.CallbackProperty(()=>this.vp?C.Cartesian3.fromDegrees(this.vp[0],this.vp[1],0):cart(T0P,0),false),orientation:new C.CallbackProperty(()=>this.vo||C.Quaternion.IDENTITY,false),model:{uri:MODELS.south,minimumPixelSize:28,heightReference:C.HeightReference.CLAMP_TO_GROUND}});
+  this.head=viewer.entities.add({position:new C.CallbackProperty(()=>this.vp?cart(offLL(this.vp[0],this.vp[1],Math.sin(this.vh||0)*14,Math.cos(this.vh||0)*14),this.vp[2]):cart(T0P,0),false),billboard:{image:glowImg(255,250,230,.2),width:4,height:4,sizeInMeters:true}});
+  // faulty lamp
+  this.fault=lights.reduce((a,l)=>mdist(l.p,pr.c[Math.floor(pr.c.length*.6)])<mdist(a.p,pr.c[Math.floor(pr.c.length*.6)])?l:a,lights[0]);
+  this.faultMark=viewer.entities.add({show:false,position:cart(this.fault.p,this.fault.g+9),billboard:{image:ringImg('#ff4d5e',8),width:54,height:54,disableDepthTestDistance:Number.POSITIVE_INFINITY},label:{...LBL,heightReference:C.HeightReference.NONE,text:'가로등 고장 감지',fillColor:C.Color.fromCssColorString('#ff8a95'),pixelOffset:new C.Cartesian2(0,-30)}});
+  const c1=cams[1]||cams[0];const mid=pr.c[Math.floor(pr.c.length*.35)];const f=this.fault.p;
+  this.keys=await prepKeys([{t:0,p:T0P,head:200,pitch:-38,range:2600},{t:7,p:T0P,head:240,pitch:-30,range:1500},{t:8,p:[this.vr.c[0][0],this.vr.c[0][1]],head:0,pitch:-20,range:260}]);
+  this.keys2=await prepKeys([{t:21,p:[mid[0],mid[1]],head:120,pitch:-28,range:520},{t:28,p:[mid[0],mid[1]],head:150,pitch:-22,range:300}]);
+  this.keys3=await prepKeys([{t:44.5,p:[f[0],f[1]],head:60,pitch:-20,range:260},{t:52,p:[f[0],f[1]],head:20,pitch:-24,range:320},{t:53,p:T0P,head:200,pitch:-40,range:1900},{t:62,p:T0P,head:250,pitch:-40,range:2000},{t:72,p:T0P,head:300,pitch:-46,range:3200}]);
+  const sav=Math.round((1-(.35*.9+1*.1))*100);this.sav=sav;
+  this.lines=[[1,6.5,''],[7,14,`밤 9시 반, 주천리 시가지. 스마트 가로등 ${lights.length}개가 평소엔 35% 밝기로 켜져 있습니다.`],[14.5,21,'사람이나 차가 다가오면, 앞쪽 가로등부터 100%로 밝아집니다.'],
+   [22,29,'밤 11시. CCTV가 혼자 걷는 어르신을 감지합니다.'],[29.5,36.5,'관제센터는 카메라를 이어 가며 동선을 따라가고, 보호자와 이장에게 위치를 보냅니다.'],[37,44,'가는 길의 가로등은 미리 밝아집니다.'],
+   [45,52,'가로등 하나가 깜빡이다 꺼지면, 고장이 자동으로 접수되고 정비 요청이 나갑니다.'],[53,61,'모든 가로등과 CCTV는 T0 통합 관제 화면 하나에서 관리됩니다.'],[62,70.5,`필요할 때만 밝히니, 상시 점등보다 전기를 약 ${sav}% 덜 씁니다.`]]},
+ update(t){S.t=t<21?H(21.5)+t*20:H(23.1)+(t-21)*20;frame(true);nightSky();
+  // van
+  const vu=clamp((t-7.5)/13,0,1);if(t<21){const a=along(this.vr,vu),q=along(this.vr,Math.min(1,vu+.01));this.vp=a;this.vh=headOf(a,q);this.vo=C.Transforms.headingPitchRollQuaternion(cart(a,a[2]),new C.HeadingPitchRoll(this.vh-Math.PI/2,0,0))}else this.vp=null;this.van.show=t<21;this.head.show=t>7&&t<21;
+  // pedestrian
+  const pu=clamp((t-21.5)/22.5,0,1)*.9;this.pp=t>21?along(this.pr,pu):null;this.ped.show=t>21&&t<45;this.pedRing.show=t>23&&t<45;
+  const agents=[];if(this.vp&&t>7)agents.push([this.vp,60]);if(this.pp)agents.push([this.pp,t>37?110:55]);
+  const fault=this.fault;this.lights.forEach(l=>{let tgt=.35;for(const[a,r]of agents){const d=mdist(l.p,a);if(d<r)tgt=Math.max(tgt,1-.3*d/r)}if(t<2)tgt*=sm(t/2);if(l===fault&&t>44.5){tgt=t<47?(Math.sin(t*40)>0?.9:.05):0}l.b+=(tgt-l.b)*.12});
+  this.faultMark.show=t>47&&t<53;
+  this.cams.forEach(c=>{c.hot=0;if(this.pp&&mdist(c.p,this.pp)<95&&t>22){c.hot=1;const hh=DEG(headOf(c.p,this.pp));c.h=c.h+((((hh-c.h)%360)+540)%360-180)*.15}else c.h=c.base+Math.sin(t*.6+c.base)*35});
+  if(t<8)keyCam(this.keys,t);else if(t<21){if(this.vp)followCam({p:this.vp,head:this.vh},-14,120,0,.08)}else if(t<28)keyCam(this.keys2,t);else if(t<44.5){if(this.pp){const q=along(this.pr,Math.min(1,pu+.01));followCam({p:this.pp,head:headOf(this.pp,q)},-24,170,25,.04)}}else keyCam(this.keys3,t)},
+ overlay(t){brand('03','스마트 가로등 · CCTV');titleCard(t,0,6.6,'03','밤길을 한곳에서 지킨다','스마트 가로등 · CCTV 통합 관제');
+  lower(t,8,20.6,'적응형 디밍',`평소 35% → 사람·차 접근 시 100% · 가로등 ${this.lights.length}개`,'#ffd36a');
+  const hot=this.cams.filter(c=>c.hot).map(c=>c.id);alertCard(t,22.5,44,'warn','배회 감지',`${hot[0]||'CAM'} 추적 중 · 보호자·이장에게 위치 전송`);
+  alertCard(t,47,52.6,'alert','가로등 고장 감지','자동 정비 요청 접수 · 관할: 주천면 시설팀');
+  if(t>=53)this.room(t);endCard(t,63,72.5,`전력 약 ${this.sav}% 절감`,'디밍 35% · 접근 시 100% · CCTV 8대 · 고장 자동 감지 (밤 시간 90% 디밍 가정)');sub(t,this.lines);vignette()},
+ room(t){const al=alpha(t,53,62.6,.6);if(al<=0)return;const x0=980,y0=200,W=880,H2=640;g.save();g.globalAlpha=al;rr(x0,y0,W,H2,20);g.fillStyle='rgba(5,9,16,.9)';g.fill();txt('T0 통합 관제센터',x0+30,y0+52,32,900);txt(`${hhmm(S.t)} · 실시간`,x0+W-30,y0+52,20,600,'#ff6b7a','right');
+  const cw=(W-80)/3,ch=cw*9/16;for(let i=0;i<6;i++){const x=x0+30+(i%3)*(cw+10),y=y0+80+Math.floor(i/3)*(ch+40);const sx=(i*311)%(FW-640),sy=200+((i*173)%(FH-600));g.drawImage(viewer.scene.canvas,sx,sy,640,360,x,y,cw,ch);g.fillStyle='rgba(0,40,20,.25)';g.fillRect(x,y,cw,ch);
+   txt(`CAM-0${i+1}`,x+10,y+24,16,800,'#9fffc9');txt('● REC',x+cw-10,y+24,14,800,'#ff4d5e','right');txt(i===1?'배회 추적':'정상',x,y+ch+24,16,700,i===1?'#ffb070':'#9aabc4')}
+  const y=y0+80+2*(ch+40)+10;txt(`가로등 ${this.lights.length}개 · 정상 ${this.lights.length-1} · 고장 1`,x0+30,y+10,22,700,'#ffd36a');txt(`CCTV 8대 정상 · 알림 2건 처리`,x0+30,y+44,22,700,'#7fd3ff');
+  const gx=x0+520,gy=y-20,gw=320,gh2=80;g.strokeStyle='#3a4558';g.strokeRect(gx,gy,gw,gh2);g.beginPath();for(let i=0;i<=40;i++){const v=i<4?1:(.35+.65*(Math.sin(i*1.7)>.85?1:0));g.lineTo(gx+i/40*gw,gy+gh2-v*gh2*.9)}g.strokeStyle='#ffd36a';g.lineWidth=2;g.stroke();txt('전력 사용 (상시 점등 = 100%)',gx,gy+gh2+22,14,500,'#9aabc4');g.restore()}};
+
+/* ---------- FILM 4: 스마트팜 ---------- */
+const F4={name:'스마트팜',file:'주천면_04_스마트팜',dur:70,
+ enter(){dayMode();setScene('farm',0)},
+ async setup(){const s1=P.S1,s2=P.S2;const ha=T.farmSites.reduce((s,f)=>s+f.ha,0);this.ha=Math.round(ha);this.irrS2=IRR.S2[0]||[H(10),H(11)];this.irrS1=IRR.S1.find(([x])=>x>Math.max(heatT,(this.irrS2[0]||0))+900)||IRR.S1[IRR.S1.length-1]||[H(15),H(16)];
+  this.keysA=await prepKeys([{t:0,p:[128.258,37.248],head:-15,pitch:-36,range:10000},{t:7,p:[128.255,37.250],head:5,pitch:-34,range:7000},{t:8,p:[s2.lon,s2.lat],head:30,pitch:-26,range:520},{t:21,p:[s2.lon,s2.lat],head:110,pitch:-20,range:300},
+   {t:22,p:[s2.lon,s2.lat],head:200,pitch:-15,range:210},{t:35.5,p:[s2.lon,s2.lat],head:260,pitch:-13,range:150}]);
+  const mid=[(s2.lon+T0P[0])/2,(s2.lat+T0P[1])/2];
+  this.keysB=await prepKeys([{t:36,p:[s2.lon,s2.lat],up:150,head:DEG(headOf([s2.lon,s2.lat],T0P)),pitch:-20,range:600},{t:43,p:mid,up:300,head:DEG(headOf([s2.lon,s2.lat],T0P))+20,pitch:-26,range:2200},
+   {t:44,p:[s1.lon,s1.lat],head:300,pitch:-22,range:450},{t:51,p:[s1.lon,s1.lat],head:340,pitch:-18,range:330},{t:52,p:[s1.lon,s1.lat],head:60,pitch:-15,range:200},{t:59.5,p:[s1.lon,s1.lat],head:110,pitch:-14,range:160},
+   {t:60,p:[128.258,37.246],head:0,pitch:-38,range:8000},{t:70,p:[128.258,37.246],head:30,pitch:-42,range:10000}]);
+  const n=IRR.S1.length+IRR.S2.length,water=(IRR.S1.concat(IRR.S2)).reduce((s,[x,y])=>s+(y-x),0)/3600*14;this.n=n;this.water=water;
+  this.lines=[[1,6.5,''],[7,14,`주천면에는 스마트팜 단지 일곱 곳, 모두 ${this.ha}ha 규모의 밭이 있습니다.`],[14.5,21,'대표 밭마다 토양수분·지온·기온 센서가 10분마다 값을 보냅니다.'],
+   [22,29,`오전 ${Math.floor(this.irrS2[0]/3600)}시, 신일리 밭의 토양수분이 20% 아래로 떨어지자,`],[29.5,35.5,'밸브가 자동으로 열리고 관수가 시작됩니다.'],[36,43.5,'센서 데이터는 T0 통합 플랫폼에 모여, 마을 전체 밭 상태를 한눈에 보여 줍니다.'],
+   [44,51,'한낮 기온이 33도를 넘으면, 밭일 자제 알림이 마을 방송으로 나갑니다.'],[52,59,'용석리 밭도 같은 방식으로, 필요할 때만 물을 줍니다.'],[60,68.5,`하루 자동 관수 ${n}회, 물 약 ${water.toFixed(0)}톤. 사람 손 없이 밭이 스스로 관리됩니다.`]]},
+ simT(t){const a=this.irrS2[0],b=this.irrS1[0];if(!this.mp)this.mp=mono([[0,H(5)],[7,H(6)],[21,a-1800],[23,a-300],[29,a+60],[35.5,a+2400],[43.5,a+3600],[44,Math.max(heatT,a+3700)-600],[51,Math.max(heatT,a+3700)+600],[52,b-300],[59.5,b+2400],[60,H(18)],[70,H(19.5)]]);return pw(this.mp,t)},
+ update(t){S.t=this.simT(t);frame(true);if(t<36)keyCam(this.keysA,t);else keyCam(this.keysB,t)},
+ overlay(t){brand('04','스마트팜');titleCard(t,0,6.6,'04','밭이 마르기 전에 물을 준다','토양 센서 · 자동 관수 · 통합 플랫폼');const a=fmAt('S2',S.t),b=fmAt('S1',S.t);
+  if(t>7&&t<60)kpis(t,7.5,59.5,[[`${b.m.toFixed(1)}%`,'S1 용석리 토양수분',b.m<20.5?'#ffc145':'#7fd3ff'],[`${a.m.toFixed(1)}%`,'S2 신일리 토양수분',a.m<20.5?'#ffc145':'#7fd3ff'],[`${b.ta}°C`,'기온',b.ta>=33?'#ff6b7a':null],[hhmm(S.t),'시각']]);
+  alertCard(t,23,35,'info','S2 자동 관수 시작','토양수분 20% 미만 → 밸브 열림 · 60분');alertCard(t,44.5,51,'warn','폭염 주의','기온 33°C 이상 → 마을 방송 "한낮 밭일 자제"');alertCard(t,52.5,59.5,'info','S1 자동 관수 시작','용석리 밭 · 토양수분 20% 미만');
+  if(t>=36&&t<44)this.dash(t);endCard(t,61,70.5,`하루 자동 관수 ${this.n}회 · 물 약 ${this.water.toFixed(0)}톤`,`스마트팜 단지 7곳 · ${this.ha}ha · 센서 10분 간격 (8월 맑은 날 시나리오)`);sub(t,this.lines);vignette()},
+ dash(t){const al=alpha(t,36,43.8,.5);const x0=1060,y0=200,W=800,H2=420;g.save();g.globalAlpha=al;rr(x0,y0,W,H2,20);g.fillStyle='rgba(5,9,16,.88)';g.fill();txt('T0 통합 플랫폼 · 농업 센서',x0+30,y0+50,28,900);
+  const X=s=>x0+60+s/H(24)*(W-100),Y=v=>y0+H2-50-(v-14)/20*(H2-130);g.strokeStyle='#ffc145';g.setLineDash([6,6]);g.beginPath();g.moveTo(X(0),Y(20));g.lineTo(X(H(24)),Y(20));g.stroke();g.setLineDash([]);
+  [['S1','#e0a83a'],['S2','#3ee6c1']].forEach(([id,c])=>{g.beginPath();FM[id].forEach((x,i)=>{if(i*600>S.t)return;i?g.lineTo(X(i*600),Y(x.m)):g.moveTo(X(i*600),Y(x.m))});g.strokeStyle=c;g.lineWidth=3;g.stroke()});
+  txt('S1 용석리',x0+60,y0+90,18,700,'#e0a83a');txt('S2 신일리',x0+180,y0+90,18,700,'#3ee6c1');txt('관수 기준 20%',X(H(24)),Y(20)-8,15,600,'#ffc145','right');[0,6,12,18,24].forEach(h=>txt(h+'시',X(H(h)),y0+H2-20,15,500,'#9aabc4','center'));g.restore()}};
+
+/* ---------- runner ---------- */
+const FILMS=[F1,F2,F3,F4];
+const FR={cur:null,t0:0,rec:null,chunks:[],status:'준비',done:[],t:0};
+function cleanupScene(){camera.lookAtTransform(C.Matrix4.IDENTITY)}
+scene.preRender.addEventListener(()=>{if(!FR.cur)return;FR.t=FR.fixed!=null?FR.fixed:(performance.now()-FR.t0)/1000;try{FR.cur.update(Math.min(FR.t,FR.cur.dur))}catch(e){console.warn('film update',e)}});
+scene.postRender.addEventListener(()=>{if(!FR.cur)return;g.drawImage(scene.canvas,0,0,FW,FH);try{FR.cur.overlay(Math.min(FR.t,FR.cur.dur))}catch(e){console.warn('film overlay',e)}
+ if(FR.t>=FR.cur.dur+.4){const f=FR.cur;FR.cur=null;if(FR.rec&&FR.rec.state==='recording')FR.rec.stop();else{FR.status=`${f.name} 미리보기 끝`;FR.resolve&&FR.resolve()}}});
+async function waitTiles(ms=20000){const t0=performance.now();while(performance.now()-t0<ms){if(globe.tilesLoaded)return true;await new Promise(r=>setTimeout(r,300))}return false}
+async function prepFilm(f){FILMS.forEach(o=>{if(o!==f&&o.ents)o.ents.forEach(e=>e.show=false)});f.enter();if(!f.ready){const before=new Set(viewer.entities.values);await f.setup();f.ready=true;f.ents=viewer.entities.values.filter(e=>!before.has(e))}else f.ents.forEach(e=>e.show=true);f.mp=null}
+async function play(i,record){const f=FILMS[i];FR.status=`${f.name} 준비 중`;await prepFilm(f);
+ FR.fixed=null;FOL.h=null;f.update(0);await waitTiles(15000);await document.fonts.load(`900 40px ${FONT}`);
+ return new Promise(res=>{FR.resolve=res;if(record){const mime=MediaRecorder.isTypeSupported('video/mp4;codecs=avc1.640028')?'video/mp4;codecs=avc1.640028':'video/webm;codecs=vp9';const stream=comp.captureStream(FPS);FR.chunks=[];
+   FR.rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:18e6});FR.rec.ondataavailable=e=>{if(e.data.size)FR.chunks.push(e.data)};
+   FR.rec.onstop=()=>{const blob=new Blob(FR.chunks,{type:mime.split(';')[0]});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=f.file+(mime.includes('mp4')?'.mp4':'.webm');document.body.appendChild(a);a.click();FR.done.push({file:a.download,size:blob.size});FR.status=`${f.name} 저장: ${a.download} (${(blob.size/1e6).toFixed(1)}MB)`;res()};FR.rec.start(1000)}
+  FR.status=`${f.name} ${record?'녹화':'재생'} 중`;FR.t0=performance.now();FR.cur=f})}
+async function playAll(record,warm=true){for(let i=0;i<FILMS.length;i++){if(warm)await play(i,false);await play(i,record);cleanupScene()}FR.status='모두 끝'}
+ui.innerHTML=`<b>영상 제작 모드 · 1920×1080</b><div class="row">${FILMS.map((f,i)=>`<button data-p="${i}">▶ ${i+1} ${f.name}</button>`).join('')}</div><div class="row">${FILMS.map((f,i)=>`<button data-r="${i}">● 녹화 ${i+1}</button>`).join('')}<button data-all>● 4편 모두 녹화</button></div><div id="fst">준비</div>`;
+ui.onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.p)play(+b.dataset.p,false);else if(b.dataset.r)(async()=>{await play(+b.dataset.r,false);await play(+b.dataset.r,true)})();else if(b.hasAttribute('data-all'))playAll(true)};
+setInterval(()=>{const s=$('#fst');if(s)s.textContent=FR.status+(FR.cur?` · ${FR.t.toFixed(1)}s / ${FR.cur.dur}s`:'')},250);
+addEventListener('resize',()=>setTimeout(fixRes,50));
+window.__film={FILMS,play,playAll,FR,comp,seek:async(i,t)=>{const f=FILMS[i];if(FR.cur!==f)await prepFilm(f);FR.fixed=t;FR.cur=f;FOL.h=null},script:()=>FILMS.map(f=>({file:f.file,name:f.name,dur:f.dur,lines:(f.lines||[]).filter(l=>l[2])}))};
+}
+
 /* start */
 progress(.9,'장면 준비 중…');
 camera.setView({destination:C.Cartesian3.fromDegrees(T.center[0],T.center[1]-.6,90000),orientation:{heading:0,pitch:C.Math.toRadians(-45),roll:0}});
