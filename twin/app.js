@@ -626,6 +626,9 @@ function nightMode(on){NIGHT=on;if(on){scene.light=new C.DirectionalLight({direc
 function nightSky(){if(!NIGHT)return;scene.skyAtmosphere.brightnessShift=-.92;scene.skyAtmosphere.saturationShift=-.3;globe.atmosphereBrightnessShift=-.7;scene.fog.density=1.2e-4;scene.fog.minimumBrightness=.01}
 function dayMode(){nightMode(false);hallEnts.forEach(e=>e.show=true);for(const id in facEnts)facEnts[id].show=true}
 const REGION=[];const regions=on=>REGION.forEach(e=>e.show=on);
+/* name layers: hall labels / facility labels can be limited per scene */
+const hallsOnly=keep=>hallEnts.forEach((e,i)=>{e.label.show=!keep||keep.some(k=>T.halls[i].name.startsWith(k))});
+const facOnly=keep=>{for(const id in facEnts){const e=facEnts[id];if(e.label)e.label.show=!keep||keep.includes(id)}};
 /* film-wide look: no shadows, bigger labels, village names, river-coloured flood water */
 viewer.shadows=false;viewer.shadowMap.enabled=false;scene.globe.shadows=C.ShadowMode.DISABLED;
 try{wallPrim.shadows=C.ShadowMode.DISABLED;roofPrim.shadows=C.ShadowMode.DISABLED}catch(e){}
@@ -643,7 +646,7 @@ const nearStop=b=>{const p=P[b];let best=null,bd=1e9;T.stops.forEach(s=>{const d
 function drtCompare(){const rows=BIDS.map(b=>{const calls=M.calls.filter(c=>c.b===b&&c.dir==='in'&&c.wait!=null);const w=calls.length?calls.reduce((s,c)=>s+c.wait,0)/calls.length:900;const ride=calls.length?calls.reduce((s,c)=>s+(c.ride||RT[b+'-T0'].t),0)/calls.length:RT[b+'-T0'].t;
  const walk=T.bInfo[b].stopDist/.8,old=walk+3600+RT[b+'-T0'].t*1.25,nw=w+ride;return{b,name:short(P[b].name).replace(' ',''),old:old/60,nw:nw/60,walk:walk/60}});const o=rows.reduce((s,r)=>s+r.old,0)/rows.length,n=rows.reduce((s,r)=>s+r.nw,0)/rows.length;return{rows,old:o,nw:n,pct:Math.round((1-n/o)*100)}}
 const F1={name:'DRT',file:'주천면_01_DRT',dur:82,
- enter(){dayMode();setScene('drt',0);regions(false)},
+ enter(){dayMode();setScene('drt',0);regions(false);const hb=this.call?short(P[this.call.b].name).replace(' ',''):'금마2리';hallsOnly([hb]);facOnly(['T0'])},
  async setup(){S.drt={veh:2,rate:.15};M=makeDRT(S.drt);buildVehEnts(M);this.cmp=drtCompare();
   const ins=M.calls.filter(c=>c.dir==='in'&&c.pick!=null&&c.wait!=null);const avg=ins.reduce((x,c)=>x+c.wait,0)/ins.length;this.avg=avg;
   const cand=ins.filter(c=>c.t>H(8.6)&&c.t<H(15)&&c.wait>=300&&T.bInfo[c.b].stopDist>500).sort((x,y)=>Math.abs(x.wait-avg)-Math.abs(y.wait-avg)+(x.t-y.t)*1e-6);
@@ -680,7 +683,7 @@ const F1={name:'DRT',file:'주천면_01_DRT',dur:82,
 
 /* ---------- FILM 2: 침수 센서 ---------- */
 const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
- enter(){dayMode();S.flood.sc='heavy';setScene('flood',0);regions(false)},
+ enter(){dayMode();S.flood.sc='heavy';setScene('flood',0);regions(false);hallsOnly(['주천5리']);facOnly(['T0'])},
  async setup(){S.flood.sc='heavy';FS=floodSeries('heavy');aff.clear();
   const Lat=t=>FS[clamp(Math.floor(t/600),0,FS.length-1)].L;this.Lat=Lat;this.depth=t=>Math.min(260,clamp((t-H(9))/H(5),0,1)*25+Lat(t+4200)/5.3*240);
   const cross=v=>{for(let s=H(8);s<H(24);s+=60)if(this.depth(s)>=v)return s;return H(20)};this.c60=cross(60);this.c100=cross(100);this.c150=cross(150);
@@ -714,7 +717,7 @@ const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
 
 /* ---------- FILM 3: 가로등 · CCTV ---------- */
 const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
- enter(){setScene('intro',0);S.scene='night';hallEnts.forEach(e=>e.show=false);for(const id in facEnts)facEnts[id].show=id==='T0';nightMode(true);regions(true)},
+ enter(){setScene('intro',0);S.scene='night';hallEnts.forEach(e=>e.show=false);for(const id in facEnts)facEnts[id].show=id==='T0';nightMode(true);regions(true);hallsOnly(null);facOnly(null)},
  async setup(){
   // lights along roads near T0
   const pts=[];T.roads.forEach(r=>{const c=densify(r.c,34);c.forEach((p,i)=>{if(mdist(p,T0P)<760&&i%1===0){const q=c[Math.min(c.length-1,i+1)],o=c[Math.max(0,i-1)];const h=headOf(o,q);const side=(i%2?1:-1)*6;pts.push({p:offLL(p[0],p[1],Math.cos(h)*side,-Math.sin(h)*side),w:r.w})}})});
@@ -771,7 +774,7 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
 
 /* ---------- FILM 4: 스마트팜 ---------- */
 const F4={name:'스마트팜',file:'주천면_04_스마트팜',dur:70,
- enter(){dayMode();setScene('farm',0);regions(true)},
+ enter(){dayMode();setScene('farm',0);regions(true);hallsOnly(null);facOnly(null)},
  async setup(){const s1=P.S1,s2=P.S2;const ha=T.farmSites.reduce((s,f)=>s+f.ha,0);this.ha=Math.round(ha);this.irrS2=IRR.S2[0]||[H(10),H(11)];this.irrS1=IRR.S1.find(([x])=>x>Math.max(heatT,(this.irrS2[0]||0))+900)||IRR.S1[IRR.S1.length-1]||[H(15),H(16)];
   this.keysA=await prepKeys([{t:0,p:[128.258,37.248],head:-15,pitch:-36,range:10000},{t:7,p:[128.255,37.250],head:5,pitch:-34,range:7000},{t:8,p:[s2.lon,s2.lat],head:30,pitch:-26,range:520},{t:21,p:[s2.lon,s2.lat],head:110,pitch:-20,range:300},
    {t:22,p:[s2.lon,s2.lat],head:150,pitch:-19,range:220},{t:35.5,p:[s2.lon,s2.lat],head:210,pitch:-18,range:180}]);
