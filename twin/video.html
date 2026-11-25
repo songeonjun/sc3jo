@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>주천면 스마트시티 시뮬레이션 · 3조</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#06090f;color:#e8eef8;font:16px/1.5 "Noto Sans KR",sans-serif}
+main{max-width:1280px;margin:0 auto;padding:20px 16px 40px}h1{font-size:26px;margin:4px 0 2px}p{margin:0 0 14px;color:#9aabc4}
+video{width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;display:block}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.tabs button{font:700 15px "Noto Sans KR";color:#e8eef8;background:#141c2b;border:1px solid #2a3650;border-radius:10px;padding:10px 14px;cursor:pointer;min-height:44px}
+.tabs button[aria-pressed=true]{background:#3ee6c1;color:#06110d;border-color:#3ee6c1}
+label{display:inline-flex;gap:6px;align-items:center;margin-top:12px;color:#9aabc4}
+</style></head><body><main>
+<h1>주천면 스마트시티 시뮬레이션</h1><p>강원 영월군 주천면 · 스마트시티 3조 · 1080p 60fps · 장면이 끝나면 다음 장면이 이어서 재생돼요</p>
+<video id="v" controls playsinline preload="metadata"></video>
+<div class="tabs" id="tabs"></div>
+<label><input type="checkbox" id="auto" checked> 다음 장면 자동 재생</label>
+</main>
+<script>{
+const L=[['1 DRT','video/1_drt.mp4'],['2 침수 센서','video/2_flood.mp4'],['3 가로등·CCTV','video/3_cctv.mp4'],['4 스마트팜','video/4_farm.mp4']];
+const v=document.getElementById('v'),tabs=document.getElementById('tabs');let cur=0;
+const go=(i,play)=>{cur=i;v.src=L[i][1];[...tabs.children].forEach((b,k)=>b.setAttribute('aria-pressed',k===i));if(play)v.play().catch(()=>{})};
+L.forEach(([n],i)=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>go(i,true);tabs.appendChild(b)});
+v.addEventListener('ended',()=>{if(document.getElementById('auto').checked&&cur<L.length-1)go(cur+1,true)});
+go(0,false)}</script></body></html>
