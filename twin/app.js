@@ -625,6 +625,7 @@ function nightMode(on){NIGHT=on;if(on){scene.light=new C.DirectionalLight({direc
  if(wallPrim.ready){const dw=C.ColorGeometryInstanceAttribute.toValue(C.Color.fromCssColorString('#3b3f48')),dr=C.ColorGeometryInstanceAttribute.toValue(C.Color.fromCssColorString('#2c3038'));B.forEach((b,i)=>{const a=wallPrim.getGeometryInstanceAttributes('b'+i);if(a)a.color=on?dw:C.ColorGeometryInstanceAttribute.toValue(b.wc);const r=roofPrim.ready&&roofPrim.getGeometryInstanceAttributes('r'+i);if(r)r.color=on?dr:C.ColorGeometryInstanceAttribute.toValue(b.house?b.rc:C.Color.fromCssColorString('#cfcac0'));bState[i]=0})}}
 function nightSky(){if(!NIGHT)return;scene.skyAtmosphere.brightnessShift=-.92;scene.skyAtmosphere.saturationShift=-.3;globe.atmosphereBrightnessShift=-.7;scene.fog.density=1.2e-4;scene.fog.minimumBrightness=.01}
 function dayMode(){nightMode(false);hallEnts.forEach(e=>e.show=true);for(const id in facEnts)facEnts[id].show=true}
+const REGION=[];const regions=on=>REGION.forEach(e=>e.show=on);
 /* film-wide look: no shadows, bigger labels, village names, river-coloured flood water */
 viewer.shadows=false;viewer.shadowMap.enabled=false;scene.globe.shadows=C.ShadowMode.DISABLED;
 try{wallPrim.shadows=C.ShadowMode.DISABLED;roofPrim.shadows=C.ShadowMode.DISABLED}catch(e){}
@@ -634,7 +635,7 @@ hallEnts.forEach((e,i)=>{const h=T.halls[i];e.label.text=`${short(h.name)} 마�
 for(const id in facEnts){const e=facEnts[id];if(e.label){e.label.font='800 24px "Noto Sans KR"';e.label.outlineWidth=6;e.label.scaleByDistance=new C.NearFarScalar(1500,1.15,18000,.85)}}
 {const g2={};B.forEach(b=>{if(!b.r)return;const c=b.p[0];(g2[b.r]=g2[b.r]||[]).push(c)});
  Object.entries(g2).forEach(([r,pts])=>{if(pts.length<15)return;const xs=pts.map(p=>p[0]).sort((a,b)=>a-b),ys=pts.map(p=>p[1]).sort((a,b)=>a-b);const m=[xs[xs.length>>1],ys[ys.length>>1]];
-  viewer.entities.add({position:C.Cartesian3.fromDegrees(m[0],m[1]),label:{...BIGLBL,text:r,font:'900 38px "Noto Sans KR"',fillColor:C.Color.WHITE,outlineWidth:8,heightReference:C.HeightReference.CLAMP_TO_GROUND,verticalOrigin:C.VerticalOrigin.BOTTOM,pixelOffset:new C.Cartesian2(0,-40),scaleByDistance:new C.NearFarScalar(2000,1,25000,.6),distanceDisplayCondition:new C.DistanceDisplayCondition(900,40000)}})})}
+  REGION.push(viewer.entities.add({position:C.Cartesian3.fromDegrees(m[0],m[1]),label:{...BIGLBL,text:r,font:'900 38px "Noto Sans KR"',fillColor:C.Color.WHITE,outlineWidth:8,heightReference:C.HeightReference.CLAMP_TO_GROUND,verticalOrigin:C.VerticalOrigin.BOTTOM,pixelOffset:new C.Cartesian2(0,-40),scaleByDistance:new C.NearFarScalar(2000,1,25000,.6),distanceDisplayCondition:new C.DistanceDisplayCondition(900,40000)}}))})}
 MASK.show=false;
 for(const k in WATER){const W=WATER[k];if(W&&W.prim)W.prim.appearance.material=C.Material.fromType('Color',{color:C.Color.fromCssColorString('#2f5a63').withAlpha(.86)})}
 /* ---------- FILM 1: DRT ---------- */
@@ -642,7 +643,7 @@ const nearStop=b=>{const p=P[b];let best=null,bd=1e9;T.stops.forEach(s=>{const d
 function drtCompare(){const rows=BIDS.map(b=>{const calls=M.calls.filter(c=>c.b===b&&c.dir==='in'&&c.wait!=null);const w=calls.length?calls.reduce((s,c)=>s+c.wait,0)/calls.length:900;const ride=calls.length?calls.reduce((s,c)=>s+(c.ride||RT[b+'-T0'].t),0)/calls.length:RT[b+'-T0'].t;
  const walk=T.bInfo[b].stopDist/.8,old=walk+3600+RT[b+'-T0'].t*1.25,nw=w+ride;return{b,name:short(P[b].name).replace(' ',''),old:old/60,nw:nw/60,walk:walk/60}});const o=rows.reduce((s,r)=>s+r.old,0)/rows.length,n=rows.reduce((s,r)=>s+r.nw,0)/rows.length;return{rows,old:o,nw:n,pct:Math.round((1-n/o)*100)}}
 const F1={name:'DRT',file:'주천면_01_DRT',dur:82,
- enter(){dayMode();setScene('drt',0)},
+ enter(){dayMode();setScene('drt',0);regions(false)},
  async setup(){S.drt={veh:2,rate:.15};M=makeDRT(S.drt);buildVehEnts(M);this.cmp=drtCompare();
   const ins=M.calls.filter(c=>c.dir==='in'&&c.pick!=null&&c.wait!=null);const avg=ins.reduce((x,c)=>x+c.wait,0)/ins.length;this.avg=avg;
   const cand=ins.filter(c=>c.t>H(8.6)&&c.t<H(15)&&c.wait>=300&&T.bInfo[c.b].stopDist>500).sort((x,y)=>Math.abs(x.wait-avg)-Math.abs(y.wait-avg)+(x.t-y.t)*1e-6);
@@ -679,7 +680,7 @@ const F1={name:'DRT',file:'주천면_01_DRT',dur:82,
 
 /* ---------- FILM 2: 침수 센서 ---------- */
 const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
- enter(){dayMode();S.flood.sc='heavy';setScene('flood',0)},
+ enter(){dayMode();S.flood.sc='heavy';setScene('flood',0);regions(false)},
  async setup(){S.flood.sc='heavy';FS=floodSeries('heavy');aff.clear();
   const Lat=t=>FS[clamp(Math.floor(t/600),0,FS.length-1)].L;this.Lat=Lat;this.depth=t=>Math.min(260,clamp((t-H(9))/H(5),0,1)*25+Lat(t+4200)/5.3*240);
   const cross=v=>{for(let s=H(8);s<H(24);s+=60)if(this.depth(s)>=v)return s;return H(20)};this.c60=cross(60);this.c100=cross(100);this.c150=cross(150);
@@ -692,7 +693,7 @@ const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
    s.box=viewer.entities.add({position:cart(s.p,s.p[2]+6.2),box:{dimensions:new C.Cartesian3(1,.6,.7),material:C.Color.fromCssColorString('#4db5ff')}});
    s.card=viewer.entities.add({position:cart(s.p,s.p[2]+16),billboard:{image:cardImg(s.id,[['수위','0cm']],'#4db5ff'),scale:.62,verticalOrigin:C.VerticalOrigin.BOTTOM,disableDepthTestDistance:Number.POSITIVE_INFINITY}});
    s.ring=viewer.entities.add({position:cart(s.p,s.p[2]+.5),billboard:{image:ringImg('#ffffff',7),width:60,height:60,disableDepthTestDistance:Number.POSITIVE_INFINITY}})});
-  const T0p=[128.2715,37.2712];const s0=this.sens[0].p;
+  const h5=T.halls.find(h=>h.name.startsWith('주천5리'));const T0p=h5?[h5.lon,h5.lat]:[128.2715,37.2712];this.h5=h5;const s0=this.sens[0].p;
   this.keys=await prepKeys([{t:0,p:[128.268,37.268],head:200,pitch:-30,range:4200},{t:7,p:[128.270,37.269],head:215,pitch:-24,range:2400},{t:14,p:[s0[0],s0[1]],head:250,pitch:-18,range:700},{t:20.5,p:[s0[0],s0[1]],head:225,pitch:-15,range:330},
    {t:27,p:[s0[0],s0[1]],head:200,pitch:-14,range:290},{t:34,p:[s0[0],s0[1]],head:170,pitch:-16,range:420},{t:42,p:T0p,head:190,pitch:-16,range:700},{t:50,p:T0p,head:150,pitch:-20,range:900},{t:58,p:T0p,head:100,pitch:-26,range:1500},{t:70,p:T0p,head:60,pitch:-32,range:2600}]);
   const gold=Math.round((this.tb-this.c60)/60);this.gold=gold;
@@ -713,7 +714,7 @@ const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
 
 /* ---------- FILM 3: 가로등 · CCTV ---------- */
 const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
- enter(){setScene('intro',0);S.scene='night';hallEnts.forEach(e=>e.show=false);for(const id in facEnts)facEnts[id].show=id==='T0';nightMode(true)},
+ enter(){setScene('intro',0);S.scene='night';hallEnts.forEach(e=>e.show=false);for(const id in facEnts)facEnts[id].show=id==='T0';nightMode(true);regions(true)},
  async setup(){
   // lights along roads near T0
   const pts=[];T.roads.forEach(r=>{const c=densify(r.c,34);c.forEach((p,i)=>{if(mdist(p,T0P)<760&&i%1===0){const q=c[Math.min(c.length-1,i+1)],o=c[Math.max(0,i-1)];const h=headOf(o,q);const side=(i%2?1:-1)*6;pts.push({p:offLL(p[0],p[1],Math.cos(h)*side,-Math.sin(h)*side),w:r.w})}})});
@@ -741,7 +742,7 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
   this.faultMark=viewer.entities.add({show:false,position:cart(this.fault.p,this.fault.g+9),billboard:{image:ringImg('#ff4d5e',8),width:54,height:54,disableDepthTestDistance:Number.POSITIVE_INFINITY},label:{...LBL,heightReference:C.HeightReference.NONE,text:'가로등 고장 감지',fillColor:C.Color.fromCssColorString('#ff8a95'),pixelOffset:new C.Cartesian2(0,-30)}});
   const c1=cams[1]||cams[0];const mid=pr.c[Math.floor(pr.c.length*.35)];const f=this.fault.p;
   this.keys=await prepKeys([{t:0,p:T0P,head:200,pitch:-38,range:2600},{t:7,p:T0P,head:240,pitch:-30,range:1500},{t:8,p:[this.vr.c[0][0],this.vr.c[0][1]],head:DEG(headOf(this.vr.c[0],this.vr.c[Math.min(this.vr.c.length-1,8)])),pitch:-17,range:150}]);
-  this.keys2=await prepKeys([{t:21,p:[mid[0],mid[1]],head:120,pitch:-28,range:520},{t:28,p:[mid[0],mid[1]],head:150,pitch:-22,range:300}]);
+  this.keys2=await prepKeys([{t:21,p:[mid[0],mid[1]],head:120,pitch:-30,range:420},{t:28,p:[mid[0],mid[1]],head:150,pitch:-32,range:140}]);
   this.keys3=await prepKeys([{t:44.5,p:[f[0],f[1]],head:60,pitch:-20,range:260},{t:52,p:[f[0],f[1]],head:20,pitch:-24,range:320},{t:53,p:T0P,head:200,pitch:-40,range:1900},{t:62,p:T0P,head:250,pitch:-40,range:2000},{t:72,p:T0P,head:300,pitch:-46,range:3200}]);
   const sav=Math.round((1-(.35*.9+1*.1))*100);this.sav=sav;
   this.lines=[[1,6.5,''],[7,14,`밤 9시 반, 주천리 시가지. 스마트 가로등 ${lights.length}개가 평소엔 35% 밝기로 어둡게 켜져 있습니다.`],[14.5,21,'차가 다가오면, 가는 길 앞쪽 가로등만 100%로 밝아지고 지나가면 다시 어두워집니다.'],
@@ -756,7 +757,7 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
   const fault=this.fault;this.lights.forEach(l=>{let tgt=.18;for(const A of agents){const k=Math.cos(A.p[1]*Math.PI/180),dx=(l.p[0]-A.p[0])*111320*k,dy=(l.p[1]-A.p[1])*110540;const fw=dx*Math.sin(A.h)+dy*Math.cos(A.h),lat=Math.abs(dx*Math.cos(A.h)-dy*Math.sin(A.h));if(lat<22&&fw>-A.back&&fw<A.ahead){const e=fw<0?1+fw/A.back*.5:1-Math.max(0,fw-A.ahead*.7)/(A.ahead*.3)*.6;tgt=Math.max(tgt,clamp(e,.18,1))}}if(t<2)tgt*=sm(t/2);if(l===fault&&t>44.5){tgt=t<47?(Math.sin(t*40)>0?.9:.05):0}l.b+=(tgt-l.b)*.12});
   this.faultMark.show=t>47&&t<53;
   this.cams.forEach(c=>{c.hot=0;if(this.pp&&mdist(c.p,this.pp)<95&&t>22){c.hot=1;const hh=DEG(headOf(c.p,this.pp));c.h=c.h+((((hh-c.h)%360)+540)%360-180)*.15}else c.h=c.base+Math.sin(t*.6+c.base)*35});
-  if(t<8)keyCam(this.keys,t);else if(t<21){if(this.vp)followCam({p:this.vp,head:this.vh},-17,150,0,.03,.12)}else if(t<28)keyCam(this.keys2,t);else if(t<44.5){if(this.pp){const q=along(this.pr,Math.min(1,pu+.01));followCam({p:this.pp,head:headOf(this.pp,q)},-24,170,25,.04)}}else keyCam(this.keys3,t)},
+  if(t<8)keyCam(this.keys,t);else if(t<21){if(this.vp)followCam({p:this.vp,head:this.vh},-17,150,0,.03,.12)}else if(t<28)keyCam(this.keys2,t);else if(t<44.5){if(this.pp){const q=along(this.pr,Math.min(1,pu+.01));followCam({p:this.pp,head:headOf(this.pp,q)},-32,85,25,.04)}}else keyCam(this.keys3,t)},
  overlay(t){brand('03','스마트 가로등 · CCTV');titleCard(t,0,6.6,'03','밤길을 한곳에서 지킨다','스마트 가로등 · CCTV 통합 관제');
   lower(t,8,20.6,'적응형 디밍',`평소 35% → 사람·차 접근 시 100% · 가로등 ${this.lights.length}개`,'#ffd36a');
   const hot=this.cams.filter(c=>c.hot).map(c=>c.id);alertCard(t,22.5,44,'warn','배회 감지',`${hot[0]||'CAM'} 추적 중 · 보호자·이장에게 위치 전송`);
@@ -770,7 +771,7 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
 
 /* ---------- FILM 4: 스마트팜 ---------- */
 const F4={name:'스마트팜',file:'주천면_04_스마트팜',dur:70,
- enter(){dayMode();setScene('farm',0)},
+ enter(){dayMode();setScene('farm',0);regions(true)},
  async setup(){const s1=P.S1,s2=P.S2;const ha=T.farmSites.reduce((s,f)=>s+f.ha,0);this.ha=Math.round(ha);this.irrS2=IRR.S2[0]||[H(10),H(11)];this.irrS1=IRR.S1.find(([x])=>x>Math.max(heatT,(this.irrS2[0]||0))+900)||IRR.S1[IRR.S1.length-1]||[H(15),H(16)];
   this.keysA=await prepKeys([{t:0,p:[128.258,37.248],head:-15,pitch:-36,range:10000},{t:7,p:[128.255,37.250],head:5,pitch:-34,range:7000},{t:8,p:[s2.lon,s2.lat],head:30,pitch:-26,range:520},{t:21,p:[s2.lon,s2.lat],head:110,pitch:-20,range:300},
    {t:22,p:[s2.lon,s2.lat],head:150,pitch:-19,range:220},{t:35.5,p:[s2.lon,s2.lat],head:210,pitch:-18,range:180}]);
