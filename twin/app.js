@@ -54,7 +54,7 @@ setClock(14*3600);
 const CEN=C.Cartesian3.fromDegrees(T.center[0],T.center[1]);
 const circ=[];{const enu=C.Transforms.eastNorthUpToFixedFrame(CEN);for(let i=0;i<=128;i++){const a=i/128*2*Math.PI;const p=C.Matrix4.multiplyByPoint(enu,new C.Cartesian3(Math.cos(a)*T.radius,Math.sin(a)*T.radius,0),new C.Cartesian3());const cg=C.Cartographic.fromCartesian(p);circ.push(C.Math.toDegrees(cg.longitude),C.Math.toDegrees(cg.latitude))}}
 const circPos=C.Cartesian3.fromDegreesArray(circ);
-scene.groundPrimitives.add(new C.GroundPrimitive({geometryInstances:new C.GeometryInstance({geometry:new C.PolygonGeometry({polygonHierarchy:new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray([127.9,36.95,128.7,36.95,128.7,37.6,127.9,37.6]),[new C.PolygonHierarchy(circPos)])}),attributes:{color:C.ColorGeometryInstanceAttribute.fromColor(new C.Color(0.03,0.05,0.09,0.62))}}),appearance:new C.PerInstanceColorAppearance({flat:true,translucent:true})}));
+const MASK=scene.groundPrimitives.add(new C.GroundPrimitive({geometryInstances:new C.GeometryInstance({geometry:new C.PolygonGeometry({polygonHierarchy:new C.PolygonHierarchy(C.Cartesian3.fromDegreesArray([127.9,36.95,128.7,36.95,128.7,37.6,127.9,37.6]),[new C.PolygonHierarchy(circPos)])}),attributes:{color:C.ColorGeometryInstanceAttribute.fromColor(new C.Color(0.03,0.05,0.09,0.62))}}),appearance:new C.PerInstanceColorAppearance({flat:true,translucent:true})}));
 viewer.entities.add({polyline:{positions:circPos,clampToGround:true,width:8,material:new C.Color(1,1,1,0.18)}});
 viewer.entities.add({polyline:{positions:circPos,clampToGround:true,width:2.5,material:new C.Color(1,1,1,0.85)}});
 
@@ -558,9 +558,10 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
-const FW=1920,FH=1080,FPS=30;
+const FW=1920,FH=1080,FPS=60;
 DIR.on=false;dirStop();
 globe.tileCacheSize=3000;globe.preloadSiblings=true;globe.loadingDescendantLimit=60;
 {const st=document.createElement('style');st.textContent=`html,body{overflow:hidden;background:#000}
@@ -627,15 +628,19 @@ const BIGLBL={style:C.LabelStyle.FILL_AND_OUTLINE,outlineColor:new C.Color(0.02,
 hallEnts.forEach((e,i)=>{const h=T.halls[i];e.label.text=`${short(h.name)} 마을회관`;e.label.font='700 21px "Noto Sans KR"';e.label.outlineWidth=5;e.label.scaleByDistance=new C.NearFarScalar(1500,1.15,16000,.8);e.label.distanceDisplayCondition=new C.DistanceDisplayCondition(0,16000);e.label.fillColor=C.Color.fromCssColorString('#f3f7ff')});
 for(const id in facEnts){const e=facEnts[id];if(e.label){e.label.font='800 24px "Noto Sans KR"';e.label.outlineWidth=6;e.label.scaleByDistance=new C.NearFarScalar(1500,1.15,18000,.85)}}
 {const g2={};B.forEach(b=>{if(!b.r)return;const c=b.p[0];(g2[b.r]=g2[b.r]||[]).push(c)});
- Object.entries(g2).forEach(([r,pts])=>{if(pts.length<15)return;const xs=pts.map(p=>p[0]).sort((a,b)=>a-b),ys=pts.map(p=>p[1]).sort((a,b)=>a-b);const m=[xs[xs.length>>1],ys[ys.length>>1]];
-  viewer.entities.add({position:C.Cartesian3.fromDegrees(m[0],m[1]),label:{...BIGLBL,text:r,font:'900 38px "Noto Sans KR"',fillColor:C.Color.WHITE,outlineWidth:8,heightReference:C.HeightReference.CLAMP_TO_GROUND,verticalOrigin:C.VerticalOrigin.BOTTOM,pixelOffset:new C.Cartesian2(0,-40),scaleByDistance:new C.NearFarScalar(2000,1,25000,.6),distanceDisplayCondition:new C.DistanceDisplayCondition(900,40000)}})})}
+ Object.entries(g2).forEach(([r,pts])=>{if(pts.length<15)return;const xs=pts.map(p=>p[0]).sort((a,b)=>a-b),ys=pts.map(p=>p[1]).sort((a,b)=>a-b);let m=[xs[xs.length>>1],ys[ys.length>>1]];for(let k=0;k<6;k++){const near=Object.values(P).concat(T.halls).some(q=>mdist([q.lon,q.lat],m)<450);if(!near)break;m=offLL(m[0],m[1],0,260)}
+  viewer.entities.add({position:C.Cartesian3.fromDegrees(m[0],m[1]),label:{...BIGLBL,text:r,font:'900 38px "Noto Sans KR"',fillColor:C.Color.WHITE,outlineWidth:8,heightReference:C.HeightReference.CLAMP_TO_GROUND,verticalOrigin:C.VerticalOrigin.BOTTOM,pixelOffset:new C.Cartesian2(0,-20),scaleByDistance:new C.NearFarScalar(2000,1,25000,.6),distanceDisplayCondition:new C.DistanceDisplayCondition(3600,40000)}})})}
+MASK.show=false;
+hallEnts.forEach(e=>{e.label.verticalOrigin=C.VerticalOrigin.TOP;e.label.pixelOffset=new C.Cartesian2(0,16);e.label.distanceDisplayCondition=new C.DistanceDisplayCondition(0,4200)});
+for(const id in facEnts){const e=facEnts[id];if(e.label){e.label.verticalOrigin=C.VerticalOrigin.BOTTOM;e.label.pixelOffset=new C.Cartesian2(0,-22)}}
+function setRel(ids){for(const id in facEnts){const e=facEnts[id],rel=ids.includes(id),d=rel?new C.DistanceDisplayCondition(0,60000):new C.DistanceDisplayCondition(0,1500);if(e.label)e.label.distanceDisplayCondition=d;if(e.billboard)e.billboard.distanceDisplayCondition=d}}
 for(const k in WATER){const W=WATER[k];if(W&&W.prim)W.prim.appearance.material=C.Material.fromType('Color',{color:C.Color.fromCssColorString('#2f5a63').withAlpha(.86)})}
 /* ---------- FILM 1: DRT ---------- */
 const nearStop=b=>{const p=P[b];let best=null,bd=1e9;T.stops.forEach(s=>{const d=mdist([p.lon,p.lat],[s.lon,s.lat]);if(d<bd){bd=d;best=s}});return best};
 function drtCompare(){const rows=BIDS.map(b=>{const calls=M.calls.filter(c=>c.b===b&&c.dir==='in'&&c.wait!=null);const w=calls.length?calls.reduce((s,c)=>s+c.wait,0)/calls.length:900;const ride=calls.length?calls.reduce((s,c)=>s+(c.ride||RT[b+'-T0'].t),0)/calls.length:RT[b+'-T0'].t;
  const walk=T.bInfo[b].stopDist/.8,old=walk+3600+RT[b+'-T0'].t*1.25,nw=w+ride;return{b,name:short(P[b].name).replace(' ',''),old:old/60,nw:nw/60,walk:walk/60}});const o=rows.reduce((s,r)=>s+r.old,0)/rows.length,n=rows.reduce((s,r)=>s+r.nw,0)/rows.length;return{rows,old:o,nw:n,pct:Math.round((1-n/o)*100)}}
 const F1={name:'DRT',file:'주천면_01_DRT',dur:82,
- enter(){dayMode();setScene('drt',0)},
+ enter(){dayMode();setScene('drt',0);setRel(['T0','B5','B6','B7','B8','B9'])},
  async setup(){S.drt={veh:2,rate:.15};M=makeDRT(S.drt);buildVehEnts(M);this.cmp=drtCompare();
   const ins=M.calls.filter(c=>c.dir==='in'&&c.pick!=null&&c.wait!=null);const avg=ins.reduce((x,c)=>x+c.wait,0)/ins.length;this.avg=avg;
   const cand=ins.filter(c=>c.t>H(8.6)&&c.t<H(15)&&c.wait>=300&&T.bInfo[c.b].stopDist>500).sort((x,y)=>Math.abs(x.wait-avg)-Math.abs(y.wait-avg)+(x.t-y.t)*1e-6);
@@ -672,7 +677,7 @@ const F1={name:'DRT',file:'주천면_01_DRT',dur:82,
 
 /* ---------- FILM 2: 침수 센서 ---------- */
 const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
- enter(){dayMode();S.flood.sc='heavy';setScene('flood',0)},
+ enter(){dayMode();S.flood.sc='heavy';setScene('flood',0);setRel(['T0'])},
  async setup(){S.flood.sc='heavy';FS=floodSeries('heavy');aff.clear();
   const Lat=t=>FS[clamp(Math.floor(t/600),0,FS.length-1)].L;this.Lat=Lat;this.depth=t=>Math.min(260,clamp((t-H(9))/H(5),0,1)*25+Lat(t+4200)/5.3*240);
   const cross=v=>{for(let s=H(8);s<H(24);s+=60)if(this.depth(s)>=v)return s;return H(20)};this.c60=cross(60);this.c100=cross(100);this.c150=cross(150);
@@ -706,7 +711,7 @@ const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
 
 /* ---------- FILM 3: 가로등 · CCTV ---------- */
 const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
- enter(){setScene('intro',0);S.scene='night';hallEnts.forEach(e=>e.show=false);for(const id in facEnts)facEnts[id].show=id==='T0';nightMode(true)},
+ enter(){setScene('intro',0);S.scene='night';hallEnts.forEach(e=>e.show=false);for(const id in facEnts)facEnts[id].show=id==='T0';setRel(['T0']);nightMode(true)},
  async setup(){
   // lights along roads near T0
   const pts=[];T.roads.forEach(r=>{const c=densify(r.c,34);c.forEach((p,i)=>{if(mdist(p,T0P)<760&&i%1===0){const q=c[Math.min(c.length-1,i+1)],o=c[Math.max(0,i-1)];const h=headOf(o,q);const side=(i%2?1:-1)*6;pts.push({p:offLL(p[0],p[1],Math.cos(h)*side,-Math.sin(h)*side),w:r.w})}})});
@@ -755,7 +760,7 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
   const hot=this.cams.filter(c=>c.hot).map(c=>c.id);alertCard(t,22.5,44,'warn','배회 감지',`${hot[0]||'CAM'} 추적 중 · 보호자·이장에게 위치 전송`);
   alertCard(t,47,52.6,'alert','가로등 고장 감지','자동 정비 요청 접수 · 관할: 주천면 시설팀');
   if(t>=53)this.room(t);endCard(t,63,72.5,`전력 약 ${this.sav}% 절감`,'디밍 35% · 접근 시 100% · CCTV 8대 · 고장 자동 감지 (밤 시간 90% 디밍 가정)');sub(t,this.lines);vignette()},
- room(t){const al=alpha(t,53,62.6,.6);if(al<=0)return;const x0=980,y0=200,W=880,H2=640;g.save();g.globalAlpha=al;rr(x0,y0,W,H2,20);g.fillStyle='rgba(5,9,16,.9)';g.fill();txt('T0 통합 관제센터',x0+30,y0+52,32,900);txt(`${hhmm(S.t)} · 실시간`,x0+W-30,y0+52,20,600,'#ff6b7a','right');
+ room(t){const al=alpha(t,53,62.6,.6);if(al<=0)return;const x0=990,y0=18,W=900,H2=540;g.save();g.globalAlpha=al;rr(x0,y0,W,H2,20);g.fillStyle='rgba(5,9,16,.9)';g.fill();txt('T0 통합 관제센터',x0+30,y0+52,32,900);txt(`${hhmm(S.t)} · 실시간`,x0+W-30,y0+52,20,600,'#ff6b7a','right');
   const cw=(W-80)/3,ch=cw*9/16;for(let i=0;i<6;i++){const x=x0+30+(i%3)*(cw+10),y=y0+80+Math.floor(i/3)*(ch+40);const sx=(i*311)%(FW-640),sy=200+((i*173)%(FH-600));g.drawImage(viewer.scene.canvas,sx,sy,640,360,x,y,cw,ch);g.fillStyle='rgba(0,40,20,.25)';g.fillRect(x,y,cw,ch);
    txt(`CAM-0${i+1}`,x+10,y+24,16,800,'#9fffc9');txt('● REC',x+cw-10,y+24,14,800,'#ff4d5e','right');txt(i===1?'배회 추적':'정상',x,y+ch+24,16,700,i===1?'#ffb070':'#9aabc4')}
   const y=y0+80+2*(ch+40)+10;txt(`가로등 ${this.lights.length}개 · 정상 ${this.lights.length-1} · 고장 1`,x0+30,y+10,22,700,'#ffd36a');txt(`CCTV 8대 정상 · 알림 2건 처리`,x0+30,y+44,22,700,'#7fd3ff');
@@ -763,7 +768,7 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
 
 /* ---------- FILM 4: 스마트팜 ---------- */
 const F4={name:'스마트팜',file:'주천면_04_스마트팜',dur:70,
- enter(){dayMode();setScene('farm',0)},
+ enter(){dayMode();setScene('farm',0);setRel(['S1','S2','D1','D2','T0'])},
  async setup(){const s1=P.S1,s2=P.S2;const ha=T.farmSites.reduce((s,f)=>s+f.ha,0);this.ha=Math.round(ha);this.irrS2=IRR.S2[0]||[H(10),H(11)];this.irrS1=IRR.S1.find(([x])=>x>Math.max(heatT,(this.irrS2[0]||0))+900)||IRR.S1[IRR.S1.length-1]||[H(15),H(16)];
   this.keysA=await prepKeys([{t:0,p:[128.258,37.248],head:-15,pitch:-36,range:10000},{t:7,p:[128.255,37.250],head:5,pitch:-34,range:7000},{t:8,p:[s2.lon,s2.lat],head:30,pitch:-26,range:520},{t:21,p:[s2.lon,s2.lat],head:110,pitch:-20,range:300},
    {t:22,p:[s2.lon,s2.lat],head:150,pitch:-19,range:220},{t:35.5,p:[s2.lon,s2.lat],head:210,pitch:-18,range:180}]);
@@ -827,7 +832,7 @@ async function renderOne(o={}){const order=o.order||[0,1,2,3];const codec=await 
    const N=Math.round(f.dur*FPS);viewer.useDefaultRenderLoop=false;FR.offline=true;FOL.h=null;const base=realNow();
    for(let fr=0;fr<N;fr++,gf++){if(FR.abort)throw new Error('중단');VT=base+fr*1000/FPS;FR.fixed=fr/FPS;FR.cur=f;FR.lastU=null;viewer.render();
     if(fr===0){let w=0;while(!globe.tilesLoaded&&w<300){await sleepReal(50);viewer.render();w++}}else{let k=0;while(!globe.tilesLoaded&&k<wait){await sleepReal(35);viewer.render();k++}}
-    const fade=Math.max(0,1-fr/12,(fr-(N-15))/15);if(fade>0&&gf>0){g.fillStyle=`rgba(0,0,0,${Math.min(1,fade)})`;g.fillRect(0,0,FW,FH)}
+    const fade=Math.max(0,1-fr/(FPS*.4),(fr-(N-FPS*.5))/(FPS*.5));if(fade>0&&gf>0){g.fillStyle=`rgba(0,0,0,${Math.min(1,fade)})`;g.fillRect(0,0,FW,FH)}
     const vf=new VideoFrame(comp,{timestamp:Math.round(gf*1e6/FPS),duration:Math.round(1e6/FPS)});enc.encode(vf,{keyFrame:gf%(FPS*2)===0});vf.close();
     while(enc.encodeQueueSize>4)await tick();if(err)throw err;
     if(gf%15===0){const el=(realNow()-t0)/1000;FR.status=`통합본 렌더 ${gf+1}/${total} (${f.name}) · 남은 시간 약 ${Math.round(el/(gf+1)*(total-gf-1)/60)}분`;await tick()}}
