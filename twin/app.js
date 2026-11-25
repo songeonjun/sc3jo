@@ -557,6 +557,7 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
 const FW=1920,FH=1080,FPS=30;
@@ -614,15 +615,26 @@ function vignette(){const gr=g.createRadialGradient(FW/2,FH/2,FH*.45,FW/2,FH/2,F
 
 const SUN=scene.light,baseL=viewer.imageryLayers.get(0);let NIGHT=false;
 function nightMode(on){NIGHT=on;if(on){scene.light=new C.DirectionalLight({direction:C.Cartesian3.normalize(C.Cartesian3.add(C.Cartesian3.negate(UPV,new C.Cartesian3()),new C.Cartesian3(.15,.1,0),new C.Cartesian3()),new C.Cartesian3()),color:C.Color.fromCssColorString('#9fb2ff'),intensity:.22});if(baseL){baseL.brightness=.2;baseL.saturation=.45;baseL.contrast=1.15}viewer.shadowMap.enabled=false}
- else{scene.light=SUN;if(baseL){baseL.brightness=1.05;baseL.saturation=1.05;baseL.contrast=1.08}viewer.shadowMap.enabled=!LITE}
+ else{scene.light=SUN;if(baseL){baseL.brightness=1.05;baseL.saturation=1.05;baseL.contrast=1.08}viewer.shadowMap.enabled=false}
  if(wallPrim.ready){const dw=C.ColorGeometryInstanceAttribute.toValue(C.Color.fromCssColorString('#3b3f48')),dr=C.ColorGeometryInstanceAttribute.toValue(C.Color.fromCssColorString('#2c3038'));B.forEach((b,i)=>{const a=wallPrim.getGeometryInstanceAttributes('b'+i);if(a)a.color=on?dw:C.ColorGeometryInstanceAttribute.toValue(b.wc);const r=roofPrim.ready&&roofPrim.getGeometryInstanceAttributes('r'+i);if(r)r.color=on?dr:C.ColorGeometryInstanceAttribute.toValue(b.house?b.rc:C.Color.fromCssColorString('#cfcac0'));bState[i]=0})}}
 function nightSky(){if(!NIGHT)return;scene.skyAtmosphere.brightnessShift=-.92;scene.skyAtmosphere.saturationShift=-.3;globe.atmosphereBrightnessShift=-.7;scene.fog.density=1.2e-4;scene.fog.minimumBrightness=.01}
 function dayMode(){nightMode(false);hallEnts.forEach(e=>e.show=true);for(const id in facEnts)facEnts[id].show=true}
+/* film-wide look: no shadows, bigger labels, village names, river-coloured flood water */
+viewer.shadows=false;viewer.shadowMap.enabled=false;scene.globe.shadows=C.ShadowMode.DISABLED;
+try{wallPrim.shadows=C.ShadowMode.DISABLED;roofPrim.shadows=C.ShadowMode.DISABLED}catch(e){}
+viewer.entities.values.forEach(e=>{if(e.model)e.model.shadows=C.ShadowMode.DISABLED});
+const BIGLBL={style:C.LabelStyle.FILL_AND_OUTLINE,outlineColor:new C.Color(0.02,0.04,0.08,0.95),disableDepthTestDistance:Number.POSITIVE_INFINITY};
+hallEnts.forEach((e,i)=>{const h=T.halls[i];e.label.text=`${short(h.name)} 마을회관`;e.label.font='700 21px "Noto Sans KR"';e.label.outlineWidth=5;e.label.scaleByDistance=new C.NearFarScalar(1500,1.15,16000,.8);e.label.distanceDisplayCondition=new C.DistanceDisplayCondition(0,16000);e.label.fillColor=C.Color.fromCssColorString('#f3f7ff')});
+for(const id in facEnts){const e=facEnts[id];if(e.label){e.label.font='800 24px "Noto Sans KR"';e.label.outlineWidth=6;e.label.scaleByDistance=new C.NearFarScalar(1500,1.15,18000,.85)}}
+{const g2={};B.forEach(b=>{if(!b.r)return;const c=b.p[0];(g2[b.r]=g2[b.r]||[]).push(c)});
+ Object.entries(g2).forEach(([r,pts])=>{if(pts.length<15)return;const xs=pts.map(p=>p[0]).sort((a,b)=>a-b),ys=pts.map(p=>p[1]).sort((a,b)=>a-b);const m=[xs[xs.length>>1],ys[ys.length>>1]];
+  viewer.entities.add({position:C.Cartesian3.fromDegrees(m[0],m[1]),label:{...BIGLBL,text:r,font:'900 38px "Noto Sans KR"',fillColor:C.Color.WHITE,outlineWidth:8,heightReference:C.HeightReference.CLAMP_TO_GROUND,verticalOrigin:C.VerticalOrigin.BOTTOM,pixelOffset:new C.Cartesian2(0,-40),scaleByDistance:new C.NearFarScalar(2000,1,25000,.6),distanceDisplayCondition:new C.DistanceDisplayCondition(900,40000)}})})}
+for(const k in WATER){const W=WATER[k];if(W&&W.prim)W.prim.appearance.material=C.Material.fromType('Color',{color:C.Color.fromCssColorString('#2f5a63').withAlpha(.86)})}
 /* ---------- FILM 1: DRT ---------- */
 const nearStop=b=>{const p=P[b];let best=null,bd=1e9;T.stops.forEach(s=>{const d=mdist([p.lon,p.lat],[s.lon,s.lat]);if(d<bd){bd=d;best=s}});return best};
 function drtCompare(){const rows=BIDS.map(b=>{const calls=M.calls.filter(c=>c.b===b&&c.dir==='in'&&c.wait!=null);const w=calls.length?calls.reduce((s,c)=>s+c.wait,0)/calls.length:900;const ride=calls.length?calls.reduce((s,c)=>s+(c.ride||RT[b+'-T0'].t),0)/calls.length:RT[b+'-T0'].t;
  const walk=T.bInfo[b].stopDist/.8,old=walk+3600+RT[b+'-T0'].t*1.25,nw=w+ride;return{b,name:short(P[b].name).replace(' ',''),old:old/60,nw:nw/60,walk:walk/60}});const o=rows.reduce((s,r)=>s+r.old,0)/rows.length,n=rows.reduce((s,r)=>s+r.nw,0)/rows.length;return{rows,old:o,nw:n,pct:Math.round((1-n/o)*100)}}
-const F1={name:'DRT',file:'주천면_01_DRT',dur:74,
+const F1={name:'DRT',file:'주천면_01_DRT',dur:82,
  enter(){dayMode();setScene('drt',0)},
  async setup(){S.drt={veh:2,rate:.15};M=makeDRT(S.drt);buildVehEnts(M);this.cmp=drtCompare();
   const ins=M.calls.filter(c=>c.dir==='in'&&c.pick!=null&&c.wait!=null);const avg=ins.reduce((x,c)=>x+c.wait,0)/ins.length;this.avg=avg;
@@ -639,22 +651,22 @@ const F1={name:'DRT',file:'주천면_01_DRT',dur:74,
   const g0=(await gh([hp]))[0];this.hp=[hp[0],hp[1],g0];
   this.keysA=await prepKeys([{t:0,p:[128.252,37.256],head:-25,pitch:-34,range:9000},{t:7,p:[128.248,37.258],head:-5,pitch:-30,range:5200},
    {t:8.5,p:[(hp[0]+sp[0])/2,(hp[1]+sp[1])/2],head:headOf(hp,sp)*57.3+90,pitch:-32,range:900},{t:20,p:[(hp[0]+sp[0])/2,(hp[1]+sp[1])/2],head:headOf(hp,sp)*57.3+60,pitch:-26,range:650},
-   {t:22,p:hp,head:200,pitch:-22,range:420},{t:28,p:hp,head:150,pitch:-18,range:300}]);
-  this.keysC=await prepKeys([{t:46,p:T0P,head:210,pitch:-24,range:700},{t:50,p:T0P,head:180,pitch:-26,range:800},{t:51,p:[128.25,37.257],head:-20,pitch:-36,range:9500},{t:66,p:[128.25,37.257],head:25,pitch:-36,range:9000},{t:74,p:[128.25,37.257],head:40,pitch:-40,range:11000}]);
+   {t:22,p:hp,head:200,pitch:-22,range:420},{t:28,p:hp,head:150,pitch:-20,range:320},{t:30,p:hp,head:140,pitch:-24,range:420}]);
+  this.keysC=await prepKeys([{t:50,p:T0P,head:210,pitch:-24,range:700},{t:55,p:T0P,head:180,pitch:-26,range:800},{t:56,p:[128.25,37.257],head:-20,pitch:-36,range:9500},{t:72,p:[128.25,37.257],head:25,pitch:-36,range:9000},{t:82,p:[128.25,37.257],head:40,pitch:-40,range:11000}]);
   const c=this.cmp;const nm=short(P[b].name).replace(' ',''),sd=T.bInfo[b].stopDist,wm=Math.round(sd/.8/60);this.nm=nm;this.lines=[[1,6.5,''],[7,12.4,`${nm} 어르신이 버스를 타려면, 가장 가까운 정류장까지 약 ${sd>=950?(sd/1000).toFixed(1)+'km':Math.round(sd/10)*10+'m'}를 걸어야 합니다.`],[12.6,20.5,`걸어서 ${wm}분. 버스를 놓치면 다음 차가 올 때까지 한참을 기다려야 하죠.`],
-   [22,28.6,'DRT는 마을회관 호출벨 하나로 시작합니다. 벨을 누르면 권역 차량이 배정됩니다.'],[29,37,'승합차는 실제 도로의 최단 경로로 회관에 들러 어르신을 태우고,'],[37.4,45,'같은 방향의 다른 마을 호출까지 묶어서 T0 대합실로 향합니다.'],[46,50.5,'대합실 도착. 여기서 시내·시외버스로 갈아탑니다.'],
-   [51.5,58,'서부·남부 다섯 마을의 대합실까지 이동 시간을 비교해 보면,'],[58.4,65.5,`기존 평균 ${Math.round(c.old)}분에서 DRT ${Math.round(c.nw)}분, 약 ${c.pct}% 줄어듭니다.`],[66.5,73.5,'권역마다 두 대, 모두 네 대로 다섯 마을을 맡는, 작은 마을에 맞는 교통입니다.']]},
- simT(t){if(!this.mp)this.mp=mono([[22,this.call.t-120],[28,this.call.t+60],[29,this.call.pick-420],[45,this.arr]]);return t<22?H(9):t<46?pw(this.mp,t):this.mp[3][1]+(t-46)*60},
+   [22,29.5,'DRT는 마을회관 호출벨 하나로 시작합니다. 벨을 누르면 권역 차량이 배정됩니다.'],[30.5,39,'승합차는 실제 도로의 최단 경로로 회관에 들러 어르신을 태우고,'],[39.5,49,'같은 방향의 다른 마을 호출까지 묶어서 T0 대합실로 향합니다.'],[50.5,55,'대합실 도착. 여기서 시내·시외버스로 갈아탑니다.'],
+   [56.5,63,'서부·남부 다섯 마을의 대합실까지 이동 시간을 비교해 보면,'],[63.5,71,`기존 평균 ${Math.round(c.old)}분에서 DRT ${Math.round(c.nw)}분, 약 ${c.pct}% 줄어듭니다.`],[72.5,81,'권역마다 두 대, 모두 네 대로 다섯 마을을 맡는, 작은 마을에 맞는 교통입니다.']]},
+ simT(t){const c=this.call;if(!this.mp)this.mp=mono([[22,c.t-120],[28,c.t+60],[30,c.pick-180],[50,c.pick+600]]);return t<22?H(9):t<50?pw(this.mp,t):t<56?this.arr-60+(t-50)*18:this.arr+48+(t-56)*60},
  update(t){this.tt=t;S.t=this.simT(t);frame(true);this.walkLine.show=t>7.5&&t<21.5;this.stopEnt.show=t>7.5&&t<21.5;this.ped.show=t>8&&t<21.5;
-  if(t<29)keyCam(this.keysA,t);else if(t<46){const a=vehAt(this.ve.v,S.t);if(a.mv){this.lh=headOf(a.p,a.q);this.lp=a.p}if(this.lp)followCam({p:this.lp,head:this.lh},-19,t<31?320:200,0,.05)}else keyCam(this.keysC,t)},
+  if(t<30)keyCam(this.keysA,t);else if(t<50){const a=vehAt(this.ve.v,S.t);if(a.mv){this.lh=headOf(a.p,a.q);this.lp=a.p}if(this.lp)followCam({p:this.lp,head:this.lh},-20,t<32?320:210,0,.05)}else keyCam(this.keysC,t)},
  overlay(t){brand('01','DRT 수요응답형 교통');titleCard(t,0,6.6,'01','부르면 오는 마을버스','DRT · 이동 시간과 효율');
   lower(t,8.5,21.2,'지금: 걸어서 정류장까지',`${this.nm} 회관 → ${this.stop.name} ${Math.round(T.bInfo[this.b].stopDist)}m · 어르신 걸음(0.8m/s) 약 ${Math.round(T.bInfo[this.b].stopDist/.8/60)}분 · 배차 간격 2시간 가정`,'#ffd36a');
-  const c=this.call;if(t>=22&&t<46){const st=S.t;lower(t,22.3,45.6,'DRT 호출 → 탑승 → 대합실',`${this.nm} · 호출 ${hhmm(c.t)}${st>=c.pick?` · 탑승 ${hhmm(c.pick)} (대기 ${Math.round(c.wait/60)}분)`:''}${st>=this.arr?` · 도착 ${hhmm(this.arr)}`:''} · 평균 대기 ${Math.round(this.avg/60)}분`,'#ff4fa3');
-   const s=drtStats(M,st);kpis(t,23,45.6,[[`${Math.round(s.km)}km`,'누적 운행 거리'],[`${(s.wait/60).toFixed(1)}분`,'평균 호출 대기','#3ee6c1'],[hhmm(st),'시각']])}
-  if(t>=51)this.chart(t);endCard(t,66,74.5,`평균 ${Math.round(this.cmp.old)}분 → ${Math.round(this.cmp.nw)}분`,`이동 시간 약 ${this.cmp.pct}% 단축 · 권역당 차량 2대(총 4대)로 5개 마을`);sub(t,this.lines);vignette()},
- chart(t){const al=alpha(t,51,66.2,.6);if(al<=0)return;const c=this.cmp,x0=1000,y0=280,W=840,rowH=118;g.save();g.globalAlpha=al;rr(x0-30,y0-70,W+60,c.rows.length*rowH+150,20);g.fillStyle='rgba(6,10,18,.84)';g.fill();
+  const c=this.call;if(t>=22&&t<50){const st=S.t;lower(t,22.3,49.6,'DRT 호출 → 탑승 → 대합실',`${this.nm} · 호출 ${hhmm(c.t)}${st>=c.pick?` · 탑승 ${hhmm(c.pick)} (대기 ${Math.round(c.wait/60)}분)`:''}${st>=this.arr?` · 도착 ${hhmm(this.arr)}`:''} · 평균 대기 ${Math.round(this.avg/60)}분`,'#ff4fa3');
+   const s=drtStats(M,st);kpis(t,23,49.6,[[`${Math.round(s.km)}km`,'누적 운행 거리'],[`${(s.wait/60).toFixed(1)}분`,'평균 호출 대기','#3ee6c1'],[hhmm(st),'시각']])}
+  if(t>=56)this.chart(t);endCard(t,72,82.5,`평균 ${Math.round(this.cmp.old)}분 → ${Math.round(this.cmp.nw)}분`,`이동 시간 약 ${this.cmp.pct}% 단축 · 권역당 차량 2대(총 4대)로 5개 마을`);sub(t,this.lines);vignette()},
+ chart(t){const al=alpha(t,56,72.2,.6);if(al<=0)return;const c=this.cmp,x0=1000,y0=280,W=840,rowH=118;g.save();g.globalAlpha=al;rr(x0-30,y0-70,W+60,c.rows.length*rowH+150,20);g.fillStyle='rgba(6,10,18,.84)';g.fill();
   txt('대합실까지 걸리는 시간 (분)',x0,y0-20,28,800);txt('기존 = 정류장 도보 + 평균 대기 60분(가정) + 버스 · DRT = 시뮬레이션 대기 + 탑승',x0,y0+12,16,500,'#9aabc4');const mx=Math.max(...c.rows.map(r=>r.old))*1.05;
-  c.rows.forEach((r,i)=>{const y=y0+40+i*rowH,u=sm((t-52-i*.5)/1.6);txt(`${r.b} ${r.name}`,x0,y+24,22,700,'#e6edf7');const bw=W-150;g.fillStyle='rgba(255,211,106,.85)';g.fillRect(x0,y+36,bw*r.old/mx*u,26);g.fillStyle='#ff4fa3';g.fillRect(x0,y+68,bw*r.nw/mx*u,26);
+  c.rows.forEach((r,i)=>{const y=y0+40+i*rowH,u=sm((t-57-i*.5)/1.6);txt(`${r.b} ${r.name}`,x0,y+24,22,700,'#e6edf7');const bw=W-150;g.fillStyle='rgba(255,211,106,.85)';g.fillRect(x0,y+36,bw*r.old/mx*u,26);g.fillStyle='#ff4fa3';g.fillRect(x0,y+68,bw*r.nw/mx*u,26);
    txt(`${Math.round(r.old*u)}분`,x0+bw*r.old/mx*u+10,y+57,20,800,'#ffd36a');txt(`${Math.round(r.nw*u)}분`,x0+bw*r.nw/mx*u+10,y+89,20,800,'#ff8ac4')});
   txt('■ 기존',x0,y0+40+c.rows.length*rowH+18,20,700,'#ffd36a');txt('■ DRT',x0+110,y0+40+c.rows.length*rowH+18,20,700,'#ff8ac4');g.restore()}};
 
