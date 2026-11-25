@@ -291,7 +291,7 @@ addEventListener('keydown',e=>{if(e.target.matches('input,select'))return;const 
 progress(.93,'농업 센서·비상 상황을 준비하는 중…');
 const RAD=C.Math.toRadians,DEG=C.Math.toDegrees;
 const offLL=(lon,lat,e,n)=>[lon+e/(111320*Math.cos(lat*Math.PI/180)),lat+n/110540];
-const gh=async ll=>(await sampleH(ll.map(p=>C.Cartographic.fromDegrees(p[0],p[1])))).map(x=>x.height||0);
+const gh=async ll=>{const r=(await sampleH(ll.map(p=>C.Cartographic.fromDegrees(p[0],p[1])))).map(x=>x.height||0);return r.map((h,i)=>{if(h>120)return h;const g=globe.getHeight(C.Cartographic.fromDegrees(ll[i][0],ll[i][1]));if(g!=null&&g>120)return g;const ok=r.filter(v=>v>120);return ok.length?ok[Math.floor(ok.length/2)]:260})};
 const cart=(p,h)=>C.Cartesian3.fromDegrees(p[0],p[1],h);
 async function mkRoute(c,t,km){const d=densify(c,20);const hs=await gh(d);const r={c:d,h:fixH(hs.map(x=>x+3)),t,km};const cum=[0];for(let j=1;j<d.length;j++)cum.push(cum[j-1]+mdist(d[j-1],d[j]));r.cum=cum;r.L=cum[cum.length-1];return r}
 function subRoute(r,f0,f1){const d0=f0*r.L,d1=f1*r.L,a=along(r,f0),e=along(r,f1);const c=[[a[0],a[1]]],h=[a[2]];for(let i=0;i<r.c.length;i++)if(r.cum[i]>d0&&r.cum[i]<d1){c.push(r.c[i]);h.push(r.h[i])}c.push([e[0],e[1]]);h.push(e[2]);const o={c,h,t:r.t*(f1-f0),km:r.km*(f1-f0)};const cum=[0];for(let j=1;j<c.length;j++)cum.push(cum[j-1]+mdist(c[j-1],c[j]));o.cum=cum;o.L=cum[cum.length-1];return o}
@@ -562,6 +562,7 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
 const FW=1920,FH=1080,FPS=60;
@@ -588,7 +589,8 @@ function camAt(p,head,pitch,range){const tg=C.Cartesian3.fromDegrees(p[0],p[1],p
  CLR.dp=need>CLR.dp?CLR.dp+(need-CLR.dp)*.25:CLR.dp*.96;camera.lookAt(tg,new C.HeadingPitchRange(RAD(head),RAD(Math.max(-80,pitch-Math.max(CLR.dp,need*.6))),range))}
 ssc.enableCollisionDetection=false;
 async function prepKeys(keys){const need=keys.filter(k=>k.p&&k.p.length===2);if(need.length){const hs=await gh(need.map(k=>k.p));need.forEach((k,i)=>k.p=[k.p[0],k.p[1],hs[i]+(k.up||0)])}return keys}
-function keyCam(keys,t){FOL.h=null;let i=0;while(i<keys.length-1&&keys[i+1].t<=t)i++;const a=keys[i],b=keys[Math.min(i+1,keys.length-1)];const u=a===b?0:ease((t-a.t)/(b.t-a.t));
+function liveH(k){if(!k.p||k.fixed)return;const g=globe.getHeight(C.Cartographic.fromDegrees(k.p[0],k.p[1]));if(g==null)return;const want=g+(k.up||0);if(k.lh==null)k.lh=want;k.lh+=(want-k.lh)*.15;k.p[2]=k.lh}
+function keyCam(keys,t){FOL.h=null;let i=0;while(i<keys.length-1&&keys[i+1].t<=t)i++;const a=keys[i],b=keys[Math.min(i+1,keys.length-1)];liveH(a);liveH(b);const u=a===b?0:ease((t-a.t)/(b.t-a.t));
  const p=[a.p[0]+(b.p[0]-a.p[0])*u,a.p[1]+(b.p[1]-a.p[1])*u,a.p[2]+(b.p[2]-a.p[2])*u];let dh=b.head-a.head;while(dh>180)dh-=360;while(dh<-180)dh+=360;
  camAt(p,a.head+dh*u,a.pitch+(b.pitch-a.pitch)*u,Math.exp(Math.log(a.range)+(Math.log(b.range)-Math.log(a.range))*u))}
 const FOL={h:null};
