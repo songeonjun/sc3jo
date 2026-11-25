@@ -626,31 +626,23 @@ function nightMode(on){NIGHT=on;if(on){scene.light=new C.DirectionalLight({direc
 function nightSky(){if(!NIGHT)return;scene.skyAtmosphere.brightnessShift=-.92;scene.skyAtmosphere.saturationShift=-.3;globe.atmosphereBrightnessShift=-.7;scene.fog.density=1.2e-4;scene.fog.minimumBrightness=.01}
 function dayMode(){nightMode(false);hallEnts.forEach(e=>e.show=true);for(const id in facEnts)facEnts[id].show=true}
 /* film-wide look: no shadows, bigger labels, village names, river-coloured flood water */
-const OCC=[];viewer.shadows=false;viewer.shadowMap.enabled=false;scene.globe.shadows=C.ShadowMode.DISABLED;
+viewer.shadows=false;viewer.shadowMap.enabled=false;scene.globe.shadows=C.ShadowMode.DISABLED;
 try{wallPrim.shadows=C.ShadowMode.DISABLED;roofPrim.shadows=C.ShadowMode.DISABLED}catch(e){}
 viewer.entities.values.forEach(e=>{if(e.model)e.model.shadows=C.ShadowMode.DISABLED});
 const BIGLBL={style:C.LabelStyle.FILL_AND_OUTLINE,outlineColor:new C.Color(0.02,0.04,0.08,0.95),disableDepthTestDistance:Number.POSITIVE_INFINITY};
 hallEnts.forEach((e,i)=>{const h=T.halls[i];e.label.text=`${short(h.name)} 마을회관`;e.label.font='700 21px "Noto Sans KR"';e.label.outlineWidth=5;e.label.scaleByDistance=new C.NearFarScalar(1500,1.15,16000,.8);e.label.distanceDisplayCondition=new C.DistanceDisplayCondition(0,16000);e.label.fillColor=C.Color.fromCssColorString('#f3f7ff')});
 for(const id in facEnts){const e=facEnts[id];if(e.label){e.label.font='800 24px "Noto Sans KR"';e.label.outlineWidth=6;e.label.scaleByDistance=new C.NearFarScalar(1500,1.15,18000,.85)}}
 {const g2={};B.forEach(b=>{if(!b.r)return;const c=b.p[0];(g2[b.r]=g2[b.r]||[]).push(c)});
- Object.entries(g2).forEach(([r,pts])=>{if(pts.length<15)return;const xs=pts.map(p=>p[0]).sort((a,b)=>a-b),ys=pts.map(p=>p[1]).sort((a,b)=>a-b);let m=[xs[xs.length>>1],ys[ys.length>>1]];for(let k=0;k<6;k++){const near=Object.values(P).concat(T.halls).some(q=>mdist([q.lon,q.lat],m)<450);if(!near)break;m=offLL(m[0],m[1],0,260)}
-  OCC.push({e:viewer.entities.add({position:C.Cartesian3.fromDegrees(m[0],m[1]),label:{...BIGLBL,text:r,font:'900 38px "Noto Sans KR"',fillColor:C.Color.WHITE,outlineWidth:8,heightReference:C.HeightReference.CLAMP_TO_GROUND,verticalOrigin:C.VerticalOrigin.BOTTOM,pixelOffset:new C.Cartesian2(0,-20),scaleByDistance:new C.NearFarScalar(800,1.1,25000,.6),distanceDisplayCondition:new C.DistanceDisplayCondition(0,40000)}}),ll:m})})}
+ Object.entries(g2).forEach(([r,pts])=>{if(pts.length<15)return;const xs=pts.map(p=>p[0]).sort((a,b)=>a-b),ys=pts.map(p=>p[1]).sort((a,b)=>a-b);const m=[xs[xs.length>>1],ys[ys.length>>1]];
+  viewer.entities.add({position:C.Cartesian3.fromDegrees(m[0],m[1]),label:{...BIGLBL,text:r,font:'900 38px "Noto Sans KR"',fillColor:C.Color.WHITE,outlineWidth:8,heightReference:C.HeightReference.CLAMP_TO_GROUND,verticalOrigin:C.VerticalOrigin.BOTTOM,pixelOffset:new C.Cartesian2(0,-40),scaleByDistance:new C.NearFarScalar(2000,1,25000,.6),distanceDisplayCondition:new C.DistanceDisplayCondition(900,40000)}})})}
 MASK.show=false;
-/* labels hide when a hill stands between the camera and the place (no floating through terrain) */
-hallEnts.forEach((e,i)=>OCC.push({e,ll:[T.halls[i].lon,T.halls[i].lat]}));for(const id in facEnts)OCC.push({e:facEnts[id],ll:[P[id].lon,P[id].lat]});
-const occRay=new C.Ray(),occP=new C.Cartesian3();
-function occlude(){const cam=camera.positionWC;for(const o of OCC){const h=globe.getHeight(C.Cartographic.fromDegrees(o.ll[0],o.ll[1]));let vis=true;if(h!=null){C.Cartesian3.fromDegrees(o.ll[0],o.ll[1],h+8,undefined,occP);const d=C.Cartesian3.distance(cam,occP);C.Cartesian3.clone(cam,occRay.origin);C.Cartesian3.normalize(C.Cartesian3.subtract(occP,cam,occRay.direction),occRay.direction);const hit=globe.pick(occRay,scene);if(hit&&C.Cartesian3.distance(cam,hit)<d-40)vis=false}
- if(o.e.label)o.e.label.show=vis;if(o.e.billboard)o.e.billboard.show=vis}}
-hallEnts.forEach(e=>{e.label.verticalOrigin=C.VerticalOrigin.TOP;e.label.pixelOffset=new C.Cartesian2(0,16);e.label.distanceDisplayCondition=new C.DistanceDisplayCondition(0,5000)});
-for(const id in facEnts){const e=facEnts[id];if(e.label){e.label.verticalOrigin=C.VerticalOrigin.BOTTOM;e.label.pixelOffset=new C.Cartesian2(0,-22)}}
-function setRel(ids){for(const id in facEnts){const e=facEnts[id],rel=ids.includes(id),d=rel?new C.DistanceDisplayCondition(0,60000):new C.DistanceDisplayCondition(0,1500);if(e.label)e.label.distanceDisplayCondition=d;if(e.billboard)e.billboard.distanceDisplayCondition=d}}
 for(const k in WATER){const W=WATER[k];if(W&&W.prim)W.prim.appearance.material=C.Material.fromType('Color',{color:C.Color.fromCssColorString('#2f5a63').withAlpha(.86)})}
 /* ---------- FILM 1: DRT ---------- */
 const nearStop=b=>{const p=P[b];let best=null,bd=1e9;T.stops.forEach(s=>{const d=mdist([p.lon,p.lat],[s.lon,s.lat]);if(d<bd){bd=d;best=s}});return best};
 function drtCompare(){const rows=BIDS.map(b=>{const calls=M.calls.filter(c=>c.b===b&&c.dir==='in'&&c.wait!=null);const w=calls.length?calls.reduce((s,c)=>s+c.wait,0)/calls.length:900;const ride=calls.length?calls.reduce((s,c)=>s+(c.ride||RT[b+'-T0'].t),0)/calls.length:RT[b+'-T0'].t;
  const walk=T.bInfo[b].stopDist/.8,old=walk+3600+RT[b+'-T0'].t*1.25,nw=w+ride;return{b,name:short(P[b].name).replace(' ',''),old:old/60,nw:nw/60,walk:walk/60}});const o=rows.reduce((s,r)=>s+r.old,0)/rows.length,n=rows.reduce((s,r)=>s+r.nw,0)/rows.length;return{rows,old:o,nw:n,pct:Math.round((1-n/o)*100)}}
 const F1={name:'DRT',file:'주천면_01_DRT',dur:82,
- enter(){dayMode();setScene('drt',0);setRel(['T0','B5','B6','B7','B8','B9'])},
+ enter(){dayMode();setScene('drt',0)},
  async setup(){S.drt={veh:2,rate:.15};M=makeDRT(S.drt);buildVehEnts(M);this.cmp=drtCompare();
   const ins=M.calls.filter(c=>c.dir==='in'&&c.pick!=null&&c.wait!=null);const avg=ins.reduce((x,c)=>x+c.wait,0)/ins.length;this.avg=avg;
   const cand=ins.filter(c=>c.t>H(8.6)&&c.t<H(15)&&c.wait>=300&&T.bInfo[c.b].stopDist>500).sort((x,y)=>Math.abs(x.wait-avg)-Math.abs(y.wait-avg)+(x.t-y.t)*1e-6);
@@ -687,7 +679,7 @@ const F1={name:'DRT',file:'주천면_01_DRT',dur:82,
 
 /* ---------- FILM 2: 침수 센서 ---------- */
 const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
- enter(){dayMode();S.flood.sc='heavy';setScene('flood',0);setRel(['T0'])},
+ enter(){dayMode();S.flood.sc='heavy';setScene('flood',0)},
  async setup(){S.flood.sc='heavy';FS=floodSeries('heavy');aff.clear();
   const Lat=t=>FS[clamp(Math.floor(t/600),0,FS.length-1)].L;this.Lat=Lat;this.depth=t=>Math.min(260,clamp((t-H(9))/H(5),0,1)*25+Lat(t+4200)/5.3*240);
   const cross=v=>{for(let s=H(8);s<H(24);s+=60)if(this.depth(s)>=v)return s;return H(20)};this.c60=cross(60);this.c100=cross(100);this.c150=cross(150);
@@ -721,7 +713,7 @@ const F2={name:'침수 센서',file:'주천면_02_침수센서',dur:70,
 
 /* ---------- FILM 3: 가로등 · CCTV ---------- */
 const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
- enter(){setScene('intro',0);S.scene='night';hallEnts.forEach(e=>e.show=false);for(const id in facEnts)facEnts[id].show=id==='T0';setRel(['T0']);nightMode(true)},
+ enter(){setScene('intro',0);S.scene='night';hallEnts.forEach(e=>e.show=false);for(const id in facEnts)facEnts[id].show=id==='T0';nightMode(true)},
  async setup(){
   // lights along roads near T0
   const pts=[];T.roads.forEach(r=>{const c=densify(r.c,34);c.forEach((p,i)=>{if(mdist(p,T0P)<760&&i%1===0){const q=c[Math.min(c.length-1,i+1)],o=c[Math.max(0,i-1)];const h=headOf(o,q);const side=(i%2?1:-1)*6;pts.push({p:offLL(p[0],p[1],Math.cos(h)*side,-Math.sin(h)*side),w:r.w})}})});
@@ -778,7 +770,7 @@ const F3={name:'가로등·CCTV',file:'주천면_03_가로등CCTV',dur:72,
 
 /* ---------- FILM 4: 스마트팜 ---------- */
 const F4={name:'스마트팜',file:'주천면_04_스마트팜',dur:70,
- enter(){dayMode();setScene('farm',0);setRel(['S1','S2','D1','D2','T0'])},
+ enter(){dayMode();setScene('farm',0)},
  async setup(){const s1=P.S1,s2=P.S2;const ha=T.farmSites.reduce((s,f)=>s+f.ha,0);this.ha=Math.round(ha);this.irrS2=IRR.S2[0]||[H(10),H(11)];this.irrS1=IRR.S1.find(([x])=>x>Math.max(heatT,(this.irrS2[0]||0))+900)||IRR.S1[IRR.S1.length-1]||[H(15),H(16)];
   this.keysA=await prepKeys([{t:0,p:[128.258,37.248],head:-15,pitch:-36,range:10000},{t:7,p:[128.255,37.250],head:5,pitch:-34,range:7000},{t:8,p:[s2.lon,s2.lat],head:30,pitch:-26,range:520},{t:21,p:[s2.lon,s2.lat],head:110,pitch:-20,range:300},
    {t:22,p:[s2.lon,s2.lat],head:150,pitch:-19,range:220},{t:35.5,p:[s2.lon,s2.lat],head:210,pitch:-18,range:180}]);
@@ -806,7 +798,7 @@ const FILMS=[F1,F2,F3,F4];
 const FR={cur:null,t0:0,rec:null,chunks:[],status:'준비',done:[],t:0};
 function cleanupScene(){camera.lookAtTransform(C.Matrix4.IDENTITY)}
 const realNow=performance.now.bind(performance);let VT=null;performance.now=()=>VT!=null?VT:realNow();const JD0=C.JulianDate.now();
-scene.preRender.addEventListener(()=>{if(VT!=null)REALJD=C.JulianDate.addSeconds(JD0,VT/1000,new C.JulianDate());if(!FR.cur)return;FR.t=FR.fixed!=null?FR.fixed:(performance.now()-FR.t0)/1000;if(FR.offline&&FR.lastU===FR.t)return;FR.lastU=FR.t;try{FR.cur.update(Math.min(FR.t,FR.cur.dur));occlude()}catch(e){console.warn('film update',e)}});
+scene.preRender.addEventListener(()=>{if(VT!=null)REALJD=C.JulianDate.addSeconds(JD0,VT/1000,new C.JulianDate());if(!FR.cur)return;FR.t=FR.fixed!=null?FR.fixed:(performance.now()-FR.t0)/1000;if(FR.offline&&FR.lastU===FR.t)return;FR.lastU=FR.t;try{FR.cur.update(Math.min(FR.t,FR.cur.dur))}catch(e){console.warn('film update',e)}});
 scene.postRender.addEventListener(()=>{if(!FR.cur)return;g.drawImage(scene.canvas,0,0,FW,FH);try{FR.cur.overlay(Math.min(FR.t,FR.cur.dur))}catch(e){console.warn('film overlay',e)}
  if(FR.t>=FR.cur.dur+.4){const f=FR.cur;FR.cur=null;if(FR.rec&&FR.rec.state==='recording')FR.rec.stop();else{FR.status=`${f.name} 미리보기 끝`;FR.resolve&&FR.resolve()}}});
 async function waitTiles(ms=20000){const t0=performance.now();while(performance.now()-t0<ms){if(globe.tilesLoaded)return true;await new Promise(r=>setTimeout(r,300))}return false}
