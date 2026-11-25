@@ -559,6 +559,9 @@ addEventListener('help',e=>e.preventDefault());
 
 
 
+
+
+
 /* ================= FILM: 1920×1080 녹화용 시네마틱 영상 4편 ================= */
 if(window.FILM){
 const FW=1920,FH=1080,FPS=60;
@@ -621,7 +624,7 @@ function nightMode(on){NIGHT=on;if(on){scene.light=new C.DirectionalLight({direc
 function nightSky(){if(!NIGHT)return;scene.skyAtmosphere.brightnessShift=-.92;scene.skyAtmosphere.saturationShift=-.3;globe.atmosphereBrightnessShift=-.7;scene.fog.density=1.2e-4;scene.fog.minimumBrightness=.01}
 function dayMode(){nightMode(false);hallEnts.forEach(e=>e.show=true);for(const id in facEnts)facEnts[id].show=true}
 /* film-wide look: no shadows, bigger labels, village names, river-coloured flood water */
-viewer.shadows=false;viewer.shadowMap.enabled=false;scene.globe.shadows=C.ShadowMode.DISABLED;
+const OCC=[];viewer.shadows=false;viewer.shadowMap.enabled=false;scene.globe.shadows=C.ShadowMode.DISABLED;
 try{wallPrim.shadows=C.ShadowMode.DISABLED;roofPrim.shadows=C.ShadowMode.DISABLED}catch(e){}
 viewer.entities.values.forEach(e=>{if(e.model)e.model.shadows=C.ShadowMode.DISABLED});
 const BIGLBL={style:C.LabelStyle.FILL_AND_OUTLINE,outlineColor:new C.Color(0.02,0.04,0.08,0.95),disableDepthTestDistance:Number.POSITIVE_INFINITY};
@@ -629,9 +632,14 @@ hallEnts.forEach((e,i)=>{const h=T.halls[i];e.label.text=`${short(h.name)} 마�
 for(const id in facEnts){const e=facEnts[id];if(e.label){e.label.font='800 24px "Noto Sans KR"';e.label.outlineWidth=6;e.label.scaleByDistance=new C.NearFarScalar(1500,1.15,18000,.85)}}
 {const g2={};B.forEach(b=>{if(!b.r)return;const c=b.p[0];(g2[b.r]=g2[b.r]||[]).push(c)});
  Object.entries(g2).forEach(([r,pts])=>{if(pts.length<15)return;const xs=pts.map(p=>p[0]).sort((a,b)=>a-b),ys=pts.map(p=>p[1]).sort((a,b)=>a-b);let m=[xs[xs.length>>1],ys[ys.length>>1]];for(let k=0;k<6;k++){const near=Object.values(P).concat(T.halls).some(q=>mdist([q.lon,q.lat],m)<450);if(!near)break;m=offLL(m[0],m[1],0,260)}
-  viewer.entities.add({position:C.Cartesian3.fromDegrees(m[0],m[1]),label:{...BIGLBL,text:r,font:'900 38px "Noto Sans KR"',fillColor:C.Color.WHITE,outlineWidth:8,heightReference:C.HeightReference.CLAMP_TO_GROUND,verticalOrigin:C.VerticalOrigin.BOTTOM,pixelOffset:new C.Cartesian2(0,-20),scaleByDistance:new C.NearFarScalar(2000,1,25000,.6),distanceDisplayCondition:new C.DistanceDisplayCondition(3600,40000)}})})}
+  OCC.push({e:viewer.entities.add({position:C.Cartesian3.fromDegrees(m[0],m[1]),label:{...BIGLBL,text:r,font:'900 38px "Noto Sans KR"',fillColor:C.Color.WHITE,outlineWidth:8,heightReference:C.HeightReference.CLAMP_TO_GROUND,verticalOrigin:C.VerticalOrigin.BOTTOM,pixelOffset:new C.Cartesian2(0,-20),scaleByDistance:new C.NearFarScalar(800,1.1,25000,.6),distanceDisplayCondition:new C.DistanceDisplayCondition(0,40000)}}),ll:m})})}
 MASK.show=false;
-hallEnts.forEach(e=>{e.label.verticalOrigin=C.VerticalOrigin.TOP;e.label.pixelOffset=new C.Cartesian2(0,16);e.label.distanceDisplayCondition=new C.DistanceDisplayCondition(0,4200)});
+/* labels hide when a hill stands between the camera and the place (no floating through terrain) */
+hallEnts.forEach((e,i)=>OCC.push({e,ll:[T.halls[i].lon,T.halls[i].lat]}));for(const id in facEnts)OCC.push({e:facEnts[id],ll:[P[id].lon,P[id].lat]});
+const occRay=new C.Ray(),occP=new C.Cartesian3();
+function occlude(){const cam=camera.positionWC;for(const o of OCC){const h=globe.getHeight(C.Cartographic.fromDegrees(o.ll[0],o.ll[1]));let vis=true;if(h!=null){C.Cartesian3.fromDegrees(o.ll[0],o.ll[1],h+8,undefined,occP);const d=C.Cartesian3.distance(cam,occP);C.Cartesian3.clone(cam,occRay.origin);C.Cartesian3.normalize(C.Cartesian3.subtract(occP,cam,occRay.direction),occRay.direction);const hit=globe.pick(occRay,scene);if(hit&&C.Cartesian3.distance(cam,hit)<d-40)vis=false}
+ if(o.e.label)o.e.label.show=vis;if(o.e.billboard)o.e.billboard.show=vis}}
+hallEnts.forEach(e=>{e.label.verticalOrigin=C.VerticalOrigin.TOP;e.label.pixelOffset=new C.Cartesian2(0,16);e.label.distanceDisplayCondition=new C.DistanceDisplayCondition(0,5000)});
 for(const id in facEnts){const e=facEnts[id];if(e.label){e.label.verticalOrigin=C.VerticalOrigin.BOTTOM;e.label.pixelOffset=new C.Cartesian2(0,-22)}}
 function setRel(ids){for(const id in facEnts){const e=facEnts[id],rel=ids.includes(id),d=rel?new C.DistanceDisplayCondition(0,60000):new C.DistanceDisplayCondition(0,1500);if(e.label)e.label.distanceDisplayCondition=d;if(e.billboard)e.billboard.distanceDisplayCondition=d}}
 for(const k in WATER){const W=WATER[k];if(W&&W.prim)W.prim.appearance.material=C.Material.fromType('Color',{color:C.Color.fromCssColorString('#2f5a63').withAlpha(.86)})}
@@ -796,7 +804,7 @@ const FILMS=[F1,F2,F3,F4];
 const FR={cur:null,t0:0,rec:null,chunks:[],status:'준비',done:[],t:0};
 function cleanupScene(){camera.lookAtTransform(C.Matrix4.IDENTITY)}
 const realNow=performance.now.bind(performance);let VT=null;performance.now=()=>VT!=null?VT:realNow();const JD0=C.JulianDate.now();
-scene.preRender.addEventListener(()=>{if(VT!=null)REALJD=C.JulianDate.addSeconds(JD0,VT/1000,new C.JulianDate());if(!FR.cur)return;FR.t=FR.fixed!=null?FR.fixed:(performance.now()-FR.t0)/1000;if(FR.offline&&FR.lastU===FR.t)return;FR.lastU=FR.t;try{FR.cur.update(Math.min(FR.t,FR.cur.dur))}catch(e){console.warn('film update',e)}});
+scene.preRender.addEventListener(()=>{if(VT!=null)REALJD=C.JulianDate.addSeconds(JD0,VT/1000,new C.JulianDate());if(!FR.cur)return;FR.t=FR.fixed!=null?FR.fixed:(performance.now()-FR.t0)/1000;if(FR.offline&&FR.lastU===FR.t)return;FR.lastU=FR.t;try{FR.cur.update(Math.min(FR.t,FR.cur.dur));occlude()}catch(e){console.warn('film update',e)}});
 scene.postRender.addEventListener(()=>{if(!FR.cur)return;g.drawImage(scene.canvas,0,0,FW,FH);try{FR.cur.overlay(Math.min(FR.t,FR.cur.dur))}catch(e){console.warn('film overlay',e)}
  if(FR.t>=FR.cur.dur+.4){const f=FR.cur;FR.cur=null;if(FR.rec&&FR.rec.state==='recording')FR.rec.stop();else{FR.status=`${f.name} 미리보기 끝`;FR.resolve&&FR.resolve()}}});
 async function waitTiles(ms=20000){const t0=performance.now();while(performance.now()-t0<ms){if(globe.tilesLoaded)return true;await new Promise(r=>setTimeout(r,300))}return false}
